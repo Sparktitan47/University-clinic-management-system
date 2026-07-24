@@ -1,0 +1,307 @@
+/* ============================================================
+   UNIVERSITY CLINIC — DESIGN TOKENS
+   Every page imports this. Edit here to retheme the whole app.
+   ============================================================ */
+@import url('https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@500&display=swap');
+
+:root {
+  --clinic-blue:      #0B3D91;
+  --clinic-blue-deep: #082C6B;
+  --clinic-blue-soft: #E8EEFA;
+  --clinic-paper:     #FFFFFF;
+  --clinic-paper-dim: #F5F7FB;
+  --clinic-ink:       #1B1F23;
+  --clinic-ink-soft:  #4A5160;
+
+  --green:  #3FA796;
+  --amber:  #D98A2B;
+  --red:    #C8473B;
+
+  --border-light:   #DCE3F0;
+  --shadow-soft:    0 2px 12px rgba(11,61,145,0.08);
+  --shadow-raised:  0 8px 28px rgba(11,61,145,0.14);
+
+  /* Semantic surfaces – light mode */
+  --bg-app:     #F5F7FB;
+  --bg-surface: #FFFFFF;
+  --bg-raised:  #FFFFFF;
+  --bg-accent:  #E8EEFA;
+  --text-1:     #1B1F23;
+  --text-2:     #4A5160;
+  --text-inv:   #FFFFFF;
+  --border:     #DCE3F0;
+  --accent:     #0B3D91;
+  --accent-2:   #082C6B;
+
+  /* Type */
+  --f-display: 'Fraunces', Georgia, serif;
+  --f-body:    'Inter', system-ui, sans-serif;
+  --f-mono:    'JetBrains Mono', monospace;
+
+  /* Radii */
+  --r-sm: 8px;
+  --r-md: 14px;
+  --r-lg: 20px;
+  --r-xl: 28px;
+
+  /* Spacing */
+  --sp-1:4px; --sp-2:8px; --sp-3:12px; --sp-4:16px;
+  --sp-5:24px; --sp-6:32px; --sp-7:48px; --sp-8:64px;
+
+  /* Motion */
+  --ease-fast: 150ms cubic-bezier(0.4,0,0.2,1);
+  --ease-base: 250ms cubic-bezier(0.4,0,0.2,1);
+  --ease-slow: 400ms cubic-bezier(0.16,1,0.3,1);
+}
+
+[data-theme="dark"] {
+  --bg-app:     #10141C;
+  --bg-surface: #161B26;
+  --bg-raised:  #1C2331;
+  --bg-accent:  #1A2740;
+  --text-1:     #EDF1FA;
+  --text-2:     #9AA7BD;
+  --text-inv:   #FFFFFF;
+  --border:     rgba(41,50,68,0.7);
+  --accent:     #4C7FE0;
+  --accent-2:   #6B96E8;
+  --shadow-soft:   0 2px 12px rgba(0,0,0,0.35);
+  --shadow-raised: 0 8px 28px rgba(0,0,0,0.5);
+}
+
+/* ── Reset & Base ───────────────────────────────────────────── */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+html { scroll-behavior: smooth; }
+
+body {
+  font-family: var(--f-body);
+  background: var(--bg-app);
+  color: var(--text-1);
+  -webkit-font-smoothing: antialiased;
+  transition: background var(--ease-base), color var(--ease-base);
+}
+
+h1,h2,h3,h4 {
+  font-family: var(--f-display);
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  color: var(--text-1);
+}
+p  { color: var(--text-2); line-height: 1.6; }
+a  { color: inherit; text-decoration: none; }
+button { font-family: var(--f-body); cursor: pointer; border: none; background: none; color: inherit; }
+img, svg { display: block; }
+
+.ui-icon {
+  width: 18px;
+  height: 18px;
+  flex-shrink: 0;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  fill: none;
+}
+.ui-icon-lg {
+  width: 28px;
+  height: 28px;
+}
+
+.clinic-logo {
+  width: 42px;
+  height: 42px;
+  border-radius: 12px;
+  background: var(--accent);
+  color: var(--text-inv);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  box-shadow: var(--shadow-soft);
+}
+
+.clinic-logo .ui-icon {
+  width: 24px;
+  height: 24px;
+}
+
+/* ── Scrollbar ──────────────────────────────────────────────── */
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--border); border-radius: 6px; }
+
+/* ── Focus ──────────────────────────────────────────────────── */
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 4px; }
+
+/* ── Buttons ────────────────────────────────────────────────── */
+.btn {
+  display: inline-flex; align-items: center; justify-content: center;
+  gap: var(--sp-2); padding: 11px 22px; border-radius: var(--r-sm);
+  font-weight: 600; font-size: 0.9375rem;
+  transition: all var(--ease-fast); white-space: nowrap;
+}
+.btn-primary { background: var(--accent); color: var(--text-inv); }
+.btn-primary:hover { background: var(--accent-2); transform: translateY(-1px); box-shadow: var(--shadow-soft); }
+.btn-ghost { border: 1.5px solid var(--border); color: var(--text-1); }
+.btn-ghost:hover { background: var(--bg-accent); }
+.btn-danger { border: 1.5px solid var(--red); color: var(--red); }
+.btn-danger:hover { background: var(--red); color: #fff; }
+.btn:disabled { opacity: 0.45; cursor: not-allowed; transform: none !important; }
+.btn-sm { padding: 7px 14px; font-size: 0.84rem; }
+.btn-icon { padding: 9px; border-radius: var(--r-sm); }
+
+.theme-btn {
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1rem;
+  border: 1px solid var(--border);
+  color: var(--text-1);
+  transition: background var(--ease-fast), color var(--ease-fast);
+}
+.theme-btn:hover { background: var(--bg-accent); }
+
+/* ── Form fields ────────────────────────────────────────────── */
+.field { display: flex; flex-direction: column; gap: var(--sp-2); margin-bottom: var(--sp-4); }
+.field label { font-size: 0.8125rem; font-weight: 600; color: var(--text-2); }
+.field input,
+.field select,
+.field textarea {
+  padding: 11px 14px;
+  border-radius: var(--r-sm);
+  border: 1.5px solid var(--border);
+  background: var(--bg-surface);
+  color: var(--text-1);
+  font-family: var(--f-body);
+  font-size: 0.9375rem;
+  transition: border-color var(--ease-fast), box-shadow var(--ease-fast);
+  outline: none;
+}
+.field input:focus,
+.field select:focus,
+.field textarea:focus { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(76,127,224,0.15); }
+.field textarea { resize: vertical; min-height: 80px; }
+.field-error { font-size: 0.78rem; color: var(--red); min-height: 1.1em; }
+.field-hint  { font-size: 0.78rem; color: var(--text-2); font-family: var(--f-mono); }
+
+/* ── Card ───────────────────────────────────────────────────── */
+.card {
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-radius: var(--r-lg);
+  box-shadow: var(--shadow-soft);
+}
+
+/* ── Badge ──────────────────────────────────────────────────── */
+.badge {
+  display: inline-flex; align-items: center; gap: 5px;
+  padding: 3px 10px; border-radius: 100px;
+  font-size: 0.72rem; font-weight: 700; letter-spacing: 0.03em;
+}
+.badge-green  { background: rgba(63,167,150,0.14); color: var(--green); }
+.badge-amber  { background: rgba(217,138,43,0.14); color: var(--amber); }
+.badge-red    { background: rgba(200,71,59,0.14);  color: var(--red);   }
+.badge-blue   { background: var(--bg-accent);       color: var(--accent);}
+
+/* ── Status dot ─────────────────────────────────────────────── */
+.dot {
+  display: inline-block; width: 9px; height: 9px; border-radius: 50%;
+  background: var(--red); flex-shrink: 0;
+  transition: background var(--ease-base), box-shadow var(--ease-base);
+}
+.dot.online  { background: var(--green); box-shadow: 0 0 0 3px rgba(63,167,150,0.2); }
+.dot.away    { background: var(--amber); box-shadow: 0 0 0 3px rgba(217,138,43,0.2); }
+
+.nav-notice-dot {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  display: inline-block;
+  flex: 0 0 auto;
+  margin-left: auto;
+  box-shadow: 0 0 0 3px rgba(200,71,59,0.12);
+}
+.nav-notice-dot.red { background: var(--red); }
+.nav-notice-dot.green {
+  background: var(--green);
+  box-shadow: 0 0 0 3px rgba(63,167,150,0.14);
+}
+
+/* ── Spinner ────────────────────────────────────────────────── */
+.spinner {
+  width: 18px; height: 18px;
+  border: 2.5px solid var(--border);
+  border-top-color: var(--accent);
+  border-radius: 50%;
+  animation: spin 0.65s linear infinite;
+  display: inline-block;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* ── Toast stack ────────────────────────────────────────────── */
+.toast-stack {
+  position: fixed; top: var(--sp-5); right: var(--sp-5);
+  z-index: 9999; display: flex; flex-direction: column; gap: var(--sp-2);
+}
+.toast {
+  background: var(--bg-raised); border: 1px solid var(--border);
+  box-shadow: var(--shadow-raised); border-radius: var(--r-md);
+  padding: var(--sp-3) var(--sp-4); font-size: 0.9rem; color: var(--text-1);
+  min-width: 240px; border-left: 3px solid var(--accent);
+  animation: toast-in var(--ease-slow); pointer-events: none;
+}
+.toast.err     { border-left-color: var(--red); }
+.toast.success { border-left-color: var(--green); }
+@keyframes toast-in {
+  from { opacity: 0; transform: translateX(16px); }
+  to   { opacity: 1; transform: translateX(0); }
+}
+
+/* ── Modal overlay ──────────────────────────────────────────── */
+.modal-overlay {
+  position: fixed; inset: 0; background: rgba(0,0,0,0.45);
+  display: flex; align-items: center; justify-content: center;
+  z-index: 8000; padding: var(--sp-5);
+  animation: fade-in 200ms ease;
+}
+.modal-overlay.hidden { display: none; }
+.modal {
+  background: var(--bg-surface); border-radius: var(--r-xl);
+  box-shadow: var(--shadow-raised); width: 100%; max-width: 480px;
+  padding: var(--sp-6); position: relative;
+  animation: slide-up 300ms var(--ease-slow);
+}
+.modal h3 { font-size: 1.25rem; margin-bottom: var(--sp-4); }
+.modal-close {
+  position: absolute; top: var(--sp-4); right: var(--sp-4);
+  width: 32px; height: 32px; border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  color: var(--text-2); font-size: 1.1rem;
+  transition: background var(--ease-fast);
+}
+.modal-close:hover { background: var(--bg-accent); }
+
+@keyframes fade-in  { from { opacity: 0; } to { opacity: 1; } }
+@keyframes slide-up { from { opacity: 0; transform: translateY(16px); } to { opacity: 1; transform: translateY(0); } }
+
+/* ── Divider ────────────────────────────────────────────────── */
+.divider { border: none; border-top: 1px solid var(--border); margin: var(--sp-5) 0; }
+
+/* ── Utility ────────────────────────────────────────────────── */
+.hidden { display: none !important; }
+.mono   { font-family: var(--f-mono); font-size: 0.82rem; letter-spacing: 0.02em; }
+.text-2 { color: var(--text-2); }
+.flex   { display: flex; }
+.flex-col { display: flex; flex-direction: column; }
+.items-center { align-items: center; }
+.gap-2 { gap: var(--sp-2); }
+.gap-3 { gap: var(--sp-3); }
+
+/* ── Reduced motion ─────────────────────────────────────────── */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: 0.001ms !important; transition-duration: 0.001ms !important; }
+}

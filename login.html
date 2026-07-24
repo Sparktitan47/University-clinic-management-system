@@ -1,0 +1,370 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>University Clinic — Sign In</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="token.css" />
+<style>
+  body {
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background:
+      radial-gradient(circle at 15% 20%, var(--bg-accent) 0%, transparent 45%),
+      var(--bg-app);
+    padding: var(--sp-5);
+  }
+
+  .auth-shell {
+    width: 100%;
+    max-width: 960px;
+    display: grid;
+    grid-template-columns: 1.1fr 1fr;
+    border-radius: var(--r-lg);
+    overflow: hidden;
+    box-shadow: var(--shadow-raised);
+    background: var(--bg-surface);
+    border: 1px solid var(--border);
+  }
+
+  .auth-brand {
+    background: linear-gradient(165deg, var(--clinic-blue) 0%, var(--clinic-blue-deep) 100%);
+    color: white;
+    padding: var(--sp-8) var(--sp-6);
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    position: relative;
+    overflow: hidden;
+  }
+  .auth-brand::after {
+    content: "";
+    position: absolute;
+    width: 320px;
+    height: 320px;
+    border-radius: 50%;
+    border: 1px solid rgba(255,255,255,0.12);
+    top: -120px;
+    right: -140px;
+  }
+  .auth-brand::before {
+    content: "";
+    position: absolute;
+    width: 220px;
+    height: 220px;
+    border-radius: 50%;
+    border: 1px solid rgba(255,255,255,0.08);
+    bottom: -80px;
+    right: -60px;
+  }
+  .auth-brand-mark {
+    font-family: var(--f-mono);
+    font-size: 0.75rem;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    opacity: 0.75;
+  }
+  .auth-brand h1 {
+    color: white;
+    font-size: 2.1rem;
+    line-height: 1.15;
+    margin-top: var(--sp-4);
+    position: relative;
+    z-index: 1;
+  }
+  .auth-brand p {
+    color: rgba(255,255,255,0.78);
+    margin-top: var(--sp-3);
+    max-width: 30ch;
+    position: relative;
+    z-index: 1;
+  }
+  .auth-brand-foot {
+    font-size: 0.8125rem;
+    color: rgba(255,255,255,0.6);
+    position: relative;
+    z-index: 1;
+  }
+
+  .auth-panel {
+    padding: var(--sp-7) var(--sp-6);
+    display: flex;
+    flex-direction: column;
+  }
+
+  .auth-tabs {
+    display: flex;
+    background: var(--bg-app);
+    border-radius: var(--r-sm);
+    padding: 4px;
+    margin-bottom: var(--sp-6);
+  }
+  .auth-tab {
+    flex: 1;
+    text-align: center;
+    padding: 10px;
+    border-radius: 6px;
+    font-weight: 600;
+    font-size: 0.9rem;
+    color: var(--text-2);
+    transition: all var(--ease-fast);
+  }
+  .auth-tab.active {
+    background: var(--bg-surface);
+    color: var(--accent);
+    box-shadow: var(--shadow-soft);
+  }
+
+  .auth-panel h2 { font-size: 1.5rem; margin-bottom: var(--sp-1); }
+  .auth-sub { font-size: 0.875rem; margin-bottom: var(--sp-5); }
+
+  .id-hint {
+    font-size: 0.75rem;
+    color: var(--text-2);
+    margin-top: -4px;
+    font-family: var(--f-mono);
+  }
+
+  .auth-form { display: none; }
+  .auth-form.active { display: block; }
+
+  .inline-action {
+    color: var(--accent);
+    font-weight: 600;
+    font-size: 0.86rem;
+    margin-top: var(--sp-3);
+    text-align: center;
+    width: 100%;
+  }
+  .inline-action:hover { color: var(--accent-2); }
+
+  .step-indicator {
+    display: flex;
+    gap: var(--sp-2);
+    margin-bottom: var(--sp-5);
+  }
+  .step-indicator span {
+    flex: 1;
+    height: 3px;
+    border-radius: 3px;
+    background: var(--border);
+    transition: background var(--ease-base);
+  }
+  .step-indicator span.done { background: var(--green); }
+  .step-indicator span.active { background: var(--accent); }
+
+  .registry-preview {
+    background: var(--bg-accent);
+    border-radius: var(--r-sm);
+    padding: var(--sp-3) var(--sp-4);
+    margin-bottom: var(--sp-4);
+    font-size: 0.875rem;
+    display: none;
+  }
+  .registry-preview.show { display: flex; align-items: center; gap: var(--sp-2); }
+  .registry-preview strong { color: var(--accent-2); }
+
+  .theme-toggle-fixed {
+    position: fixed;
+    top: var(--sp-5);
+    right: var(--sp-5);
+    width: 42px;
+    height: 42px;
+    border-radius: 50%;
+    background: var(--bg-surface);
+    border: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: var(--shadow-soft);
+    font-size: 1.1rem;
+  }
+
+  @media (max-width: 760px) {
+    .auth-shell { grid-template-columns: 1fr; }
+    .auth-brand {
+      min-height: auto;
+      padding: var(--sp-5) var(--sp-4);
+      gap: var(--sp-4);
+    }
+    .auth-brand h1 {
+      font-size: 1.55rem;
+      max-width: 18ch;
+    }
+    .auth-brand p {
+      max-width: none;
+      font-size: 0.9rem;
+    }
+    .auth-brand-foot {
+      display: none;
+    }
+    body {
+      align-items: stretch;
+      padding: var(--sp-3);
+    }
+    .auth-shell {
+      max-width: none;
+      min-height: calc(100vh - (var(--sp-3) * 2));
+      border-radius: var(--r-md);
+    }
+    .auth-panel {
+      padding: var(--sp-6) var(--sp-4);
+    }
+    .theme-toggle-fixed {
+      top: var(--sp-3);
+      right: var(--sp-3);
+      width: 38px;
+      height: 38px;
+    }
+    .id-hint {
+      overflow-wrap: anywhere;
+    }
+  }
+
+  @media (max-width: 420px) {
+    .auth-panel {
+      padding: var(--sp-5) var(--sp-3);
+    }
+    .auth-tabs {
+      margin-top: var(--sp-5);
+    }
+    .auth-panel h2 {
+      font-size: 1.3rem;
+    }
+  }
+</style>
+</head>
+<body>
+
+<button class="theme-toggle-fixed" id="themeToggle" aria-label="Toggle dark mode">🌙</button>
+
+<div class="auth-shell">
+  <div class="auth-brand">
+    <div>
+      <div class="auth-brand-mark">University Clinic</div>
+      <h1>Care, coordinated&nbsp;in one place.</h1>
+      <p>Message your doctor or counsellor directly, book appointments, and check pharmacy stock — all from one student account.</p>
+    </div>
+    <div class="auth-brand-foot">Staff and students sign in with their official university ID.</div>
+  </div>
+
+  <div class="auth-panel">
+    <div class="auth-tabs">
+      <div class="auth-tab active" data-tab="login">Log in</div>
+      <div class="auth-tab" data-tab="signup">Sign up</div>
+    </div>
+
+    <!-- ============ LOG IN ============ -->
+    <form class="auth-form active" id="loginForm" novalidate>
+      <h2>Welcome back</h2>
+      <p class="auth-sub">Enter your ID and password to continue.</p>
+
+      <div class="field">
+        <label for="loginId">University / Staff ID</label>
+        <input id="loginId" type="text" placeholder="e.g. Student-2024118" autocomplete="username" required />
+        <span class="id-hint">Student-xxxx · DOC-xxx · PHR-xxx · COUN-xxx · ADMIN-001</span>
+        <span class="field-error" id="loginIdError"></span>
+      </div>
+
+      <div class="field">
+        <label for="loginPassword">Password</label>
+        <input id="loginPassword" type="password" autocomplete="current-password" required />
+        <span class="field-error" id="loginPasswordError"></span>
+      </div>
+
+      <button type="submit" class="btn btn-primary" id="loginSubmit" style="width:100%; margin-top: 8px;">
+        Log in
+      </button>
+      <button type="button" class="inline-action" id="forgotPasswordLink">Forgot password?</button>
+    </form>
+
+    <!-- ============ FORGOT PASSWORD ============ -->
+    <form class="auth-form" id="forgotForm" novalidate>
+      <h2>Reset password</h2>
+      <p class="auth-sub">Enter your ID. If a recovery email is attached, we will send a reset link there.</p>
+
+      <div class="field">
+        <label for="forgotId">University / Staff ID</label>
+        <input id="forgotId" type="text" placeholder="e.g. Student-2024118" autocomplete="username" required />
+        <span class="field-error" id="forgotIdError"></span>
+      </div>
+
+      <button type="submit" class="btn btn-primary" id="forgotSubmit" style="width:100%;">
+        Send recovery email
+      </button>
+      <button type="button" class="btn btn-ghost" id="contactAdminReset" style="width:100%; margin-top: 8px;">
+        Contact admin to reset account
+      </button>
+      <button type="button" class="inline-action" id="backToLoginFromForgot">Back to log in</button>
+    </form>
+
+    <!-- ============ SIGN UP (2 steps: verify ID -> create password) ============ -->
+    <form class="auth-form" id="signupForm" novalidate>
+      <h2>Create your password</h2>
+      <p class="auth-sub">Your ID is already on file. Set a password to activate your account.</p>
+
+      <div class="step-indicator">
+        <span class="active" id="stepDot1"></span>
+        <span id="stepDot2"></span>
+      </div>
+
+      <!-- Step 1: verify ID exists in registry -->
+      <div id="signupStep1">
+        <div class="field">
+          <label for="signupId">University / Staff ID</label>
+          <input id="signupId" type="text" placeholder="e.g. DOC-014" autocomplete="username" required />
+          <span class="field-error" id="signupIdError"></span>
+        </div>
+        <button type="button" class="btn btn-primary" id="verifyIdBtn" style="width:100%;">
+          Verify ID
+        </button>
+      </div>
+
+      <!-- Step 2: shown after ID is verified -->
+      <div id="signupStep2" style="display:none;">
+        <div class="registry-preview show" id="registryPreview">
+          <span class="status-dot is-online"></span>
+          <span>ID recognised — welcome, <strong id="registryName"></strong></span>
+        </div>
+
+        <div class="field">
+          <label for="signupRecoveryEmail">Recovery email</label>
+          <input id="signupRecoveryEmail" type="email" autocomplete="email" placeholder="you@example.com" required />
+          <span class="id-hint">Used only for password reset if you forget your password.</span>
+          <span class="field-error" id="signupRecoveryEmailError"></span>
+        </div>
+        <div class="field">
+          <label for="signupPassword">Create password</label>
+          <input id="signupPassword" type="password" autocomplete="new-password" required />
+          <span class="field-error" id="signupPasswordError"></span>
+        </div>
+        <div class="field">
+          <label for="signupPasswordConfirm">Confirm password</label>
+          <input id="signupPasswordConfirm" type="password" autocomplete="new-password" required />
+          <span class="field-error" id="signupPasswordConfirmError"></span>
+        </div>
+
+        <button type="submit" class="btn btn-primary" id="signupSubmit" style="width:100%;">
+          Create account & continue
+        </button>
+        <button type="button" class="btn btn-ghost" id="backToStep1" style="width:100%; margin-top: 8px;">
+          ← Use a different ID
+        </button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-database-compat.js"></script>
+<script src="firebase-config.js"></script>
+<script src="core.js"></script>
+<script src="auth.js"></script>
+</body>
+</html>

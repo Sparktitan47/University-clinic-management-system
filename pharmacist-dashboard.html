@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>University Clinic - Pharmacist Dashboard</title>
+<link rel="stylesheet" href="token.css" />
+<link rel="stylesheet" href="staff.css" />
+</head>
+<body>
+<header class="staff-topbar">
+  <div class="staff-brand"><span class="clinic-logo" aria-hidden="true"><svg class="ui-icon" viewBox="0 0 24 24"><path d="M12 5v14"/><path d="M5 12h14"/><rect x="3.5" y="3.5" width="17" height="17" rx="5"/></svg></span><span>University Clinic <small>Pharmacist dashboard</small></span></div>
+  <div><strong id="staffName"></strong> <span class="mono" id="staffId"></span></div>
+  <div class="staff-topbar-actions">
+    <button class="theme-btn" id="themeBtn" aria-label="Toggle dark mode"></button>
+    <button class="btn btn-sm btn-ghost sign-out-btn">Sign out</button>
+  </div>
+</header>
+<main class="pharm-shell" style="padding-top:82px">
+  <div class="pharm-header">
+    <div><h2>Pharmacy Stock</h2><p>Publish available medications and update quantities for students.</p></div>
+  </div>
+  <div class="card" style="padding:var(--sp-5);margin-bottom:var(--sp-5)">
+    <form id="drugForm">
+      <div class="avail-grid">
+        <div class="field"><label for="drugName">Medication name</label><input id="drugName" required /></div>
+        <div class="field"><label for="drugCategory">Category</label><input id="drugCategory" placeholder="Pain relief, Antibiotic" /></div>
+        <div class="field"><label for="drugQty">Quantity left</label><input id="drugQty" type="number" min="0" required /></div>
+        <div class="field"><label for="drugMaxQty">Full stock quantity</label><input id="drugMaxQty" type="number" min="1" required /></div>
+        <div class="field"><label for="drugUnit">Unit</label><input id="drugUnit" value="units" /></div>
+        <label class="day-toggle on" style="align-self:end"><input id="drugAvailable" type="checkbox" checked /> Available</label>
+      </div>
+      <div class="flex gap-2">
+        <button class="btn btn-primary" id="drugSubmit" type="submit">Save medication</button>
+        <button class="btn btn-ghost" id="clearDrugForm" type="button">Clear</button>
+      </div>
+    </form>
+  </div>
+  <div class="drug-grid" id="drugGrid"></div>
+</main>
+<script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-database-compat.js"></script>
+<script src="firebase-config.js"></script>
+<script src="core.js"></script>
+<script src="pharmacist.js"></script>
+</body>
+</html>

@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>University Clinic - Admin Dashboard</title>
+<link rel="stylesheet" href="token.css" />
+<link rel="stylesheet" href="staff.css" />
+</head>
+<body>
+<main class="admin-shell">
+  <aside class="admin-sidebar">
+    <div class="admin-sidebar-brand">
+      <span class="clinic-logo" aria-hidden="true"><svg class="ui-icon" viewBox="0 0 24 24"><path d="M12 5v14"/><path d="M5 12h14"/><rect x="3.5" y="3.5" width="17" height="17" rx="5"/></svg></span>
+      <div><h2>University Clinic</h2><p>Admin dashboard</p></div>
+    </div>
+    <button class="admin-nav-item active" data-admin-section="overview"><svg class="ui-icon" viewBox="0 0 24 24"><path d="M4 13h6V4H4v9Z"/><path d="M14 20h6V4h-6v16Z"/><path d="M4 20h6v-3H4v3Z"/></svg>Overview</button>
+    <button class="admin-nav-item" data-admin-section="registry"><svg class="ui-icon" viewBox="0 0 24 24"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M19 8v6"/><path d="M22 11h-6"/></svg>Registry</button>
+    <button class="admin-nav-item" data-admin-section="assignments"><svg class="ui-icon" viewBox="0 0 24 24"><path d="M8 7a4 4 0 1 0 0 8"/><path d="M16 7a4 4 0 1 1 0 8"/><path d="M8 12h8"/></svg>Assignments</button>
+    <button class="admin-nav-item" data-admin-section="emergency"><svg class="ui-icon" viewBox="0 0 24 24"><path d="M12 3 2 21h20L12 3Z"/><path d="M12 9v5"/><path d="M12 17h.01"/></svg>Emergency</button>
+    <button class="admin-nav-item" data-admin-section="reports"><svg class="ui-icon" viewBox="0 0 24 24"><path d="M4 4h16v12H7l-3 3V4Z"/><path d="M8 8h8"/><path d="M8 12h5"/></svg>Issue reports<span class="nav-notice-dot red hidden" id="adminReportDot"></span></button>
+    <hr class="admin-nav-divider" />
+    <button class="admin-nav-item sign-out-btn"><svg class="ui-icon" viewBox="0 0 24 24"><path d="M10 17 15 12 10 7"/><path d="M15 12H3"/><path d="M21 3v18"/></svg>Sign out</button>
+  </aside>
+  <section class="admin-main">
+    <header class="admin-topbar">
+      <h3>Admin console</h3>
+      <span id="adminName" class="mono"></span>
+      <button class="theme-btn" id="themeBtn" aria-label="Toggle dark mode"></button>
+      <button class="btn btn-sm btn-ghost sign-out-btn">Sign out</button>
+    </header>
+    <div class="admin-content">
+      <section class="admin-section active" id="admin-overview">
+        <div class="stat-cards">
+          <div class="card stat-card"><span class="stat-num" id="statStudents">0</span><span class="stat-label">Students</span></div>
+          <div class="card stat-card"><span class="stat-num" id="statDoctors">0</span><span class="stat-label">Doctors</span></div>
+          <div class="card stat-card"><span class="stat-num" id="statCounsellors">0</span><span class="stat-label">Counsellors</span></div>
+          <div class="card stat-card"><span class="stat-num" id="statPharmacists">0</span><span class="stat-label">Pharmacists</span></div>
+        </div>
+        <div class="card" style="padding:var(--sp-5)">
+          <h2>How registration works</h2>
+          <p>Add a recognised ID in the Registry section. The person then uses Sign up once to create their own private password.</p>
+        </div>
+      </section>
+
+      <section class="admin-section" id="admin-registry">
+        <div class="card" style="padding:var(--sp-5);margin-bottom:var(--sp-5)">
+          <h2>Add recognised ID</h2>
+          <form id="registryForm" style="margin-top:var(--sp-4)">
+            <div class="avail-grid">
+              <div class="field"><label for="regId">University or staff ID</label><input id="regId" placeholder="Student-2024118" required /></div>
+              <div class="field"><label for="regName">Full name</label><input id="regName" required /></div>
+              <div class="field"><label for="regRole">Role</label><select id="regRole" required><option value="">Select role</option><option value="student">Student</option><option value="doctor">Doctor</option><option value="pharmacist">Pharmacist</option><option value="counsellor">Counsellor</option><option value="admin">Admin</option></select></div>
+              <div class="field"><label for="regRecoveryEmail">Recovery email</label><input id="regRecoveryEmail" type="email" placeholder="optional@example.com" /></div>
+            </div>
+            <button class="btn btn-primary" type="submit">Save ID</button>
+          </form>
+        </div>
+        <div class="card" style="padding:var(--sp-5)">
+          <div class="section-tools">
+            <h2>Recognised users</h2>
+            <div class="search-field"><svg class="ui-icon" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m16 16 5 5"/></svg><input id="accountSearch" placeholder="Search unique ID" /></div>
+          </div>
+          <div class="data-table-wrap">
+            <table class="data-table">
+              <thead><tr><th>ID</th><th>Name</th><th>Role</th><th>Status</th><th>Recovery email</th><th>Doctor</th><th>Counsellor</th><th>Actions</th></tr></thead>
+              <tbody id="registryRows"></tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <section class="admin-section" id="admin-assignments">
+        <div class="card" style="padding:var(--sp-5);max-width:760px">
+          <h2>Assign student care team</h2>
+          <p>Students can only message and book with the doctor and counsellor assigned here.</p>
+          <form id="assignmentForm" style="margin-top:var(--sp-4)">
+            <div class="field"><label for="assignStudent">Student</label><select id="assignStudent" required></select></div>
+            <div class="field"><label for="assignDoctor">Doctor</label><select id="assignDoctor"></select></div>
+            <div class="field"><label for="assignCounsellor">Counsellor</label><select id="assignCounsellor"></select></div>
+            <button class="btn btn-primary" type="submit">Save assignment</button>
+          </form>
+        </div>
+      </section>
+
+      <section class="admin-section" id="admin-emergency">
+        <div class="card" style="padding:var(--sp-5);max-width:860px">
+          <h2>Emergency contacts</h2>
+          <p>Changes saved here are shown on the student emergency page.</p>
+          <form id="emergencyForm" style="margin-top:var(--sp-4)">
+            <input type="hidden" id="emergencyIndex" />
+            <div class="avail-grid">
+              <div class="field"><label for="emergencyName">Contact name</label><input id="emergencyName" required /></div>
+              <div class="field"><label for="emergencyDetails">Details</label><input id="emergencyDetails" required /></div>
+            </div>
+            <div class="flex gap-2">
+              <button class="btn btn-primary" type="submit" id="emergencySubmit">Save contact</button>
+              <button class="btn btn-ghost" type="button" id="clearEmergencyForm">Clear</button>
+            </div>
+          </form>
+          <div class="appt-list" id="adminEmergencyList" style="margin-top:var(--sp-5)"></div>
+        </div>
+      </section>
+
+      <section class="admin-section" id="admin-reports">
+        <div class="card" style="padding:var(--sp-5)">
+          <h2>Issue reports</h2>
+          <div class="notif-list" id="reportList" style="margin-top:var(--sp-4)"></div>
+        </div>
+      </section>
+    </div>
+  </section>
+</main>
+<script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-database-compat.js"></script>
+<script src="firebase-config.js"></script>
+<script src="core.js"></script>
+<script src="admin.js"></script>
+</body>
+</html>

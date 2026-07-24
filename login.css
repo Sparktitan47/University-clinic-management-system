@@ -1,0 +1,170 @@
+body {
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background:
+      radial-gradient(circle at 15% 20%, var(--bg-accent) 0%, transparent 45%),
+      var(--bg-app);
+    padding: var(--sp-5);
+  }
+
+  .auth-shell {
+    width: 100%;
+    max-width: 960px;
+    display: grid;
+    grid-template-columns: 1.1fr 1fr;
+    border-radius: var(--r-lg);
+    overflow: hidden;
+    box-shadow: var(--shadow-raised);
+    background: var(--bg-surface);
+    border: 1px solid var(--border);
+  }
+
+  .auth-brand {
+    background: linear-gradient(165deg, var(--clinic-blue) 0%, var(--clinic-blue-deep) 100%);
+    color: white;
+    padding: var(--sp-8) var(--sp-6);
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    position: relative;
+    overflow: hidden;
+  }
+  .auth-brand::after {
+    content: "";
+    position: absolute;
+    width: 320px;
+    height: 320px;
+    border-radius: 50%;
+    border: 1px solid rgba(255,255,255,0.12);
+    top: -120px;
+    right: -140px;
+  }
+  .auth-brand::before {
+    content: "";
+    position: absolute;
+    width: 220px;
+    height: 220px;
+    border-radius: 50%;
+    border: 1px solid rgba(255,255,255,0.08);
+    bottom: -80px;
+    right: -60px;
+  }
+  .auth-brand-mark {
+    font-family: var(--f-mono);
+    font-size: 0.75rem;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    opacity: 0.75;
+  }
+  .auth-brand h1 {
+    color: white;
+    font-size: 2.1rem;
+    line-height: 1.15;
+    margin-top: var(--sp-4);
+    position: relative;
+    z-index: 1;
+  }
+  .auth-brand p {
+    color: rgba(255,255,255,0.78);
+    margin-top: var(--sp-3);
+    max-width: 30ch;
+    position: relative;
+    z-index: 1;
+  }
+  .auth-brand-foot {
+    font-size: 0.8125rem;
+    color: rgba(255,255,255,0.6);
+    position: relative;
+    z-index: 1;
+  }
+
+  .auth-panel {
+    padding: var(--sp-7) var(--sp-6);
+    display: flex;
+    flex-direction: column;
+  }
+
+  .auth-tabs {
+    display: flex;
+    background: var(--bg-app);
+    border-radius: var(--r-sm);
+    padding: 4px;
+    margin-bottom: var(--sp-6);
+  }
+  .auth-tab {
+    flex: 1;
+    text-align: center;
+    padding: 10px;
+    border-radius: 6px;
+    font-weight: 600;
+    font-size: 0.9rem;
+    color: var(--text-2);
+    transition: all var(--ease-fast);
+  }
+  .auth-tab.active {
+    background: var(--bg-surface);
+    color: var(--accent);
+    box-shadow: var(--shadow-soft);
+  }
+
+  .auth-panel h2 { font-size: 1.5rem; margin-bottom: var(--sp-1); }
+  .auth-sub { font-size: 0.875rem; margin-bottom: var(--sp-5); }
+
+  .id-hint {
+    font-size: 0.75rem;
+    color: var(--text-2);
+    margin-top: -4px;
+    font-family: var(--f-mono);
+  }
+
+  .auth-form { display: none; }
+  .auth-form.active { display: block; }
+
+  .step-indicator {
+    display: flex;
+    gap: var(--sp-2);
+    margin-bottom: var(--sp-5);
+  }
+  .step-indicator span {
+    flex: 1;
+    height: 3px;
+    border-radius: 3px;
+    background: var(--border);
+    transition: background var(--ease-base);
+  }
+  .step-indicator span.done { background: var(--green); }
+  .step-indicator span.active { background: var(--accent); }
+
+  .registry-preview {
+    background: var(--bg-accent);
+    border-radius: var(--r-sm);
+    padding: var(--sp-3) var(--sp-4);
+    margin-bottom: var(--sp-4);
+    font-size: 0.875rem;
+    display: none;
+  }
+  .registry-preview.show { display: flex; align-items: center; gap: var(--sp-2); }
+  .registry-preview strong { color: var(--accent-2); }
+
+  .theme-toggle-fixed {
+    position: fixed;
+    top: var(--sp-5);
+    right: var(--sp-5);
+    width: 42px;
+    height: 42px;
+    border-radius: 50%;
+    background: var(--bg-surface);
+    border: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: var(--shadow-soft);
+    font-size: 1.1rem;
+  }
+
+  @media (max-width: 760px) {
+    .auth-shell { grid-template-columns: 1fr; }
+    .auth-brand { display: none; }
+  }
