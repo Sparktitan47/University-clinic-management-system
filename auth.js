@@ -296,8 +296,10 @@ document.getElementById("signupForm").addEventListener("submit", async e => {
   if (!isUsableRecoveryEmail(recoveryEmail)) return setErr("signupRecoveryEmailError", "Enter a valid email you can access.");
 
   setBusy(btn, true);
+  let accountCreated = false;
   try {
     await auth.createUserWithEmailAndPassword(recoveryEmail, pw);
+    accountCreated = true;
     await db.collection("registry").doc(verifiedEntry.id).update({
       authEmail: recoveryEmail,
       recoveryEmail,
@@ -311,10 +313,24 @@ document.getElementById("signupForm").addEventListener("submit", async e => {
     toast("Account created - welcome!", "success");
     setTimeout(() => window.location.href = dashboardForRole(role), 700);
   } catch (err) {
+    console.error("Clinic signup failed", {
+      code: err?.code || "unknown",
+      message: err?.message || String(err),
+      id: verifiedEntry?.id,
+    });
+    // A blocked registry update after Auth account creation leaves an unusable
+    // account behind. Remove only the account created by this submission.
+    if (accountCreated && (err?.code === "permission-denied" || err?.code === "firestore/permission-denied")) {
+      await auth.currentUser?.delete().catch(cleanupErr => console.warn("Could not remove incomplete signup account", cleanupErr));
+    }
     if (err.code === "auth/email-already-in-use") {
       setErr("signupRecoveryEmailError", "This recovery email already belongs to another account.");
     } else if (err.code === "auth/weak-password") {
       setErr("signupPasswordError", "Choose a stronger password.");
+    } else if (err.code === "auth/operation-not-allowed") {
+      setErr("signupPasswordError", "Email/Password sign-in is not enabled in Firebase Authentication.");
+    } else if (err.code === "permission-denied" || err.code === "firestore/permission-denied") {
+      setErr("signupPasswordError", "Firebase created the password account but Firestore blocked its registry update. Update the Firestore rules, then try again.");
     } else {
       setErr("signupPasswordError", "Something went wrong. Please try again.");
     }
