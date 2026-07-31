@@ -113,8 +113,23 @@ document.getElementById("loginForm").addEventListener("submit", async e => {
     localStorage.setItem("clinic-name", entry.name || rawId);
     window.location.href = dashboardForRole(role);
   } catch (err) {
+    // Keep the underlying Firebase error visible for support and deployment
+    // diagnostics. The UI message below remains safe for end users.
+    console.error("Clinic login failed", {
+      code: err?.code || "unknown",
+      message: err?.message || String(err),
+      id: rawId,
+    });
     if (err.code === "auth/invalid-credential" || err.code === "auth/wrong-password") {
       setErr("loginPasswordError", "Incorrect password.");
+    } else if (err.code === "auth/operation-not-allowed") {
+      setErr("loginIdError", "Password sign-in is not enabled. Ask the clinic admin to enable Email/Password in Firebase Authentication.");
+    } else if (err.code === "auth/user-not-found") {
+      setErr("loginIdError", "This ID does not have a password account yet. Use Sign up first.");
+    } else if (err.code === "permission-denied" || err.code === "firestore/permission-denied") {
+      setErr("loginIdError", "The registry cannot be read. Ask the clinic admin to check Firestore security rules.");
+    } else if (err.code === "unavailable" || err.code === "firestore/unavailable") {
+      setErr("loginIdError", "Cannot reach the clinic database. Check your internet connection and try again.");
     } else if (err.code === "auth/too-many-requests") {
       setErr("loginPasswordError", "Too many attempts - try again shortly.");
     } else {
