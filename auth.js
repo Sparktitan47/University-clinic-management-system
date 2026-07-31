@@ -90,16 +90,28 @@ document.getElementById("loginForm").addEventListener("submit", async e => {
       setErr("loginIdError", "ID not on file. Contact the clinic admin.");
       return;
     }
-    const primaryEmail = String(entry.authEmail || "").trim().toLowerCase();
-    try {
-      await auth.signInWithEmailAndPassword(primaryEmail || idToEmail(rawId), pw);
-    } catch (err) {
-      if (primaryEmail && primaryEmail !== idToEmail(rawId)) {
-        await auth.signInWithEmailAndPassword(idToEmail(rawId), pw);
-      } else {
-        throw err;
+    // Older registry records can retain the original internal login email
+    // while password recovery is attached to a real email. Try every email
+    // legitimately associated with this ID before reporting a bad password.
+    const loginEmails = [...new Set([
+      String(entry.authEmail || "").trim().toLowerCase(),
+      String(entry.recoveryEmail || "").trim().toLowerCase(),
+      idToEmail(rawId),
+    ].filter(Boolean))];
+    let signInError;
+    for (const email of loginEmails) {
+      try {
+        await auth.signInWithEmailAndPassword(email, pw);
+        signInError = null;
+        break;
+      } catch (err) {
+        signInError = err;
+        // Configuration, throttling, and network failures cannot be resolved
+        // by trying another identifier, so report them immediately.
+        if (err?.code !== "auth/invalid-credential" && err?.code !== "auth/wrong-password" && err?.code !== "auth/user-not-found") break;
       }
     }
+    if (signInError) throw signInError;
     await attachRecoveryEmailIfPossible(rawId, entry).catch(() => {});
     const role = String(entry.role || detectRole(rawId) || "").trim().toLowerCase();
     if (!entry.signedUp) {
