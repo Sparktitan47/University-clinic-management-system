@@ -94,21 +94,29 @@ async function sendMessage() {
   const textarea = document.getElementById("chatInput");
   const text = textarea.value.trim();
   if (!text || !activeThread) return;
-  textarea.value = "";
-  textarea.style.height = "auto";
 
   const otherId = document.querySelector(`[data-thread="${activeThread}"]`)?.dataset.other;
-  await db.collection("chats").doc(activeThread).collection("messages").add({
-    text,
-    senderId: ME.id,
-    senderName: ME.name,
-    ts: firebase.firestore.FieldValue.serverTimestamp(),
-  });
-  await db.collection("chats").doc(activeThread).set({
-    lastMessage: text,
-    lastTs: firebase.firestore.FieldValue.serverTimestamp(),
-    [`unread_${otherId}`]: firebase.firestore.FieldValue.increment(1),
-  }, { merge: true });
+  if (!otherId) return;
+  try {
+    const threadRef = db.collection("chats").doc(activeThread);
+    const messageRef = threadRef.collection("messages").doc();
+    const batch = db.batch();
+    batch.set(messageRef, {
+      text, senderId: ME.id, senderName: ME.name,
+      ts: firebase.firestore.FieldValue.serverTimestamp(),
+    });
+    batch.set(threadRef, {
+      lastMessage: text,
+      lastTs: firebase.firestore.FieldValue.serverTimestamp(),
+      [`unread_${otherId}`]: firebase.firestore.FieldValue.increment(1),
+    }, { merge: true });
+    await batch.commit();
+    textarea.value = "";
+    textarea.style.height = "auto";
+  } catch (err) {
+    console.error("Could not send chat message", err);
+    toast("Message could not be sent. Check your connection and Firestore rules.", "err");
+  }
 }
 
 document.getElementById("sendBtn").addEventListener("click", sendMessage);

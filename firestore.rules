@@ -1,0 +1,27 @@
+rules_version = '2';
+
+// Functional baseline for this browser-only clinic prototype.
+// Deploy in Firebase Console > Firestore Database > Rules.
+// For a production clinic, enforce identity and role checks with custom claims
+// and trusted server-side functions rather than browser-controlled role data.
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    // A person must be able to read their known ID before signing in. Listing
+    // remains limited to signed-in users so the registry cannot be enumerated.
+    match /registry/{id} {
+      allow get: if true;
+      allow list: if signedIn();
+      allow create, update, delete: if signedIn();
+    }
+
+    // Chat, appointments, availability, reports, pharmacy and shared site
+    // settings are all accessed after Firebase Authentication completes.
+    match /{document=**} {
+      allow read, write: if signedIn();
+    }
+  }
+}

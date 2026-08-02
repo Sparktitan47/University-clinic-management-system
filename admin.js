@@ -39,6 +39,9 @@ function loadRegistry() {
     renderStats(users);
     renderRegistry(getFilteredRegistry());
     renderAssignmentOptions(users);
+  }, err => {
+    console.error("Unable to load the clinic registry", err);
+    toast("Unable to load the registry. Check Firestore security rules and your connection.", "err", 7000);
   });
 }
 
@@ -90,17 +93,31 @@ document.getElementById("registryRows")?.addEventListener("click", async e => {
   if (!action) return;
   const resetId = action.dataset.resetAccount;
   const deleteId = action.dataset.deleteAccount;
+  if (resetId === ADMIN_ID || deleteId === ADMIN_ID) {
+    toast("The active admin registry ID cannot be reset or deleted here.", "err");
+    return;
+  }
   if (resetId) {
-    await db.collection("registry").doc(resetId).set({
-      signedUp: false,
-      resetAt: firebase.firestore.FieldValue.serverTimestamp(),
-      updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
-    }, { merge: true });
-    toast("Signup status reset. Delete the Firebase Auth user in console before reusing the same password login.", "success", 6500);
+    try {
+      await db.collection("registry").doc(resetId).set({
+        signedUp: false,
+        resetAt: firebase.firestore.FieldValue.serverTimestamp(),
+        updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
+      }, { merge: true });
+      toast("Signup status reset. Delete the matching Firebase Auth user before that person signs up again.", "success", 6500);
+    } catch (err) {
+      console.error("Could not reset registry account", err);
+      toast("Could not reset this ID. Check Firestore security rules.", "err");
+    }
   }
   if (deleteId && confirm(`Delete ${deleteId} from the clinic registry?`)) {
-    await db.collection("registry").doc(deleteId).delete();
-    toast("Registry account deleted. You can recreate the ID from the form.", "success");
+    try {
+      await db.collection("registry").doc(deleteId).delete();
+      toast("Registry ID deleted. Delete its Firebase Auth user too before reusing the same email.", "success", 6500);
+    } catch (err) {
+      console.error("Could not delete registry account", err);
+      toast("Could not delete this ID. Check Firestore security rules.", "err");
+    }
   }
 });
 
@@ -136,18 +153,28 @@ document.getElementById("registryForm").addEventListener("submit", async e => {
     toast("Enter a valid recovery email or leave it blank.", "err");
     return;
   }
-  const existing = await db.collection("registry").doc(id).get();
-  const createdAt = existing.exists ? existing.data().createdAt || firebase.firestore.FieldValue.serverTimestamp() : firebase.firestore.FieldValue.serverTimestamp();
-  await db.collection("registry").doc(id).set({
-    name,
-    role,
-    recoveryEmail: recoveryEmail || existing.data()?.recoveryEmail || null,
-    signedUp: existing.exists ? !!existing.data().signedUp : false,
-    createdAt,
-    updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
-  }, { merge: true });
-  e.target.reset();
-  toast("Recognised ID saved.", "success");
+  const submit = e.submitter || e.target.querySelector('[type="submit"]');
+  setBusy(submit, true);
+  try {
+    const existing = await db.collection("registry").doc(id).get();
+    const existingData = existing.data() || {};
+    const createdAt = existing.exists ? existingData.createdAt || firebase.firestore.FieldValue.serverTimestamp() : firebase.firestore.FieldValue.serverTimestamp();
+    await db.collection("registry").doc(id).set({
+      name,
+      role,
+      recoveryEmail: recoveryEmail || existingData.recoveryEmail || null,
+      signedUp: existing.exists ? !!existingData.signedUp : false,
+      createdAt,
+      updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
+    }, { merge: true });
+    e.target.reset();
+    toast(existing.exists ? "Recognised ID updated." : "Recognised ID saved.", "success");
+  } catch (err) {
+    console.error("Could not save registry ID", err);
+    toast("Could not save this ID. Check Firestore security rules and try again.", "err", 7000);
+  } finally {
+    setBusy(submit, false, "Save ID");
+  }
 });
 
 document.getElementById("assignmentForm").addEventListener("submit", async e => {
@@ -156,12 +183,17 @@ document.getElementById("assignmentForm").addEventListener("submit", async e => 
   const doctorId = document.getElementById("assignDoctor").value;
   const counsellorId = document.getElementById("assignCounsellor").value;
   if (!studentId) return;
-  await db.collection("registry").doc(studentId).set({
-    assignedDoctor: doctorId || null,
-    assignedCounsellor: counsellorId || null,
-    updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
-  }, { merge: true });
-  toast("Student assignment saved.", "success");
+  try {
+    await db.collection("registry").doc(studentId).set({
+      assignedDoctor: doctorId || null,
+      assignedCounsellor: counsellorId || null,
+      updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
+    }, { merge: true });
+    toast("Student assignment saved.", "success");
+  } catch (err) {
+    console.error("Could not save care-team assignment", err);
+    toast("Could not save the assignment. Check Firestore security rules.", "err");
+  }
 });
 
 function loadReports() {

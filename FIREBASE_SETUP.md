@@ -135,4 +135,14 @@ reports
 
 ## 7. Development Rules
 
-For early testing, Firebase test mode is fine. Before real deployment, replace test mode with proper security rules so users can only access their own role data.
+The app needs a known registry ID to be readable before sign-in, and it needs
+signed-in users to create chat messages and update the registry during signup.
+
+Copy the contents of `firestore.rules` into Firebase Console > Firestore
+Database > Rules, then click **Publish**. This restores the Admin dashboard's
+ability to add, update, assign, and remove IDs and allows the live chat to save
+both its conversation and message together.
+
+This rule set is a functional baseline for this browser-only prototype. Before
+using real clinic data, move authorisation to server-side functions and use
+Firebase custom claims to enforce per-user, per-role access.
