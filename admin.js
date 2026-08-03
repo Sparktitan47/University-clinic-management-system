@@ -10,10 +10,25 @@ let emergencyContacts = [];
 guardRoute("admin").then(user => {
   document.getElementById("adminName").textContent = user.name;
   attachThemeToggle("themeBtn");
+  // A successfully authenticated admin is active even if a previous rules
+  // configuration prevented auth.js from recording the signedUp flag.
+  markCurrentAdminActive(user.id);
   loadRegistry();
   loadReports();
   loadAdminEmergencyContacts();
 });
+
+async function markCurrentAdminActive(id) {
+  try {
+    await db.collection("registry").doc(id).set({
+      signedUp: true,
+      signedUpAt: firebase.firestore.FieldValue.serverTimestamp(),
+      updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
+    }, { merge: true });
+  } catch (err) {
+    console.warn("Could not update current admin account status", err);
+  }
+}
 
 document.querySelectorAll(".sign-out-btn").forEach(btn => btn.addEventListener("click", goOfflineAndSignOut));
 
@@ -65,7 +80,7 @@ function renderRegistry(users) {
       <td class="mono">${escHtml(user.id)}</td>
       <td>${escHtml(user.name || "")}</td>
       <td><span class="badge badge-blue">${escHtml(user.role || "")}</span></td>
-      <td>${user.signedUp ? '<span class="badge badge-green">active account</span>' : '<span class="badge badge-amber">ID authorised</span>'}</td>
+      <td>${user.signedUp || (user.id === localStorage.getItem("clinic-id") && auth.currentUser) ? '<span class="badge badge-green">active account</span>' : '<span class="badge badge-amber">ID authorised</span>'}</td>
       <td class="mono">${escHtml(user.recoveryEmail || user.authEmail || "not set")}</td>
       <td class="mono">${escHtml(user.role === "student" ? (user.assignedDoctor || "unassigned") : "N/A")}</td>
       <td class="mono">${escHtml(user.role === "student" ? (user.assignedCounsellor || "unassigned") : "N/A")}</td>
@@ -171,7 +186,11 @@ document.getElementById("registryForm").addEventListener("submit", async e => {
     toast(existing.exists ? "Recognised ID updated." : "Recognised ID saved.", "success");
   } catch (err) {
     console.error("Could not save registry ID", err);
-    toast("Could not save this ID. Check Firestore security rules and try again.", "err", 7000);
+    const code = err?.code || "unknown error";
+    const message = code === "permission-denied" || code === "firestore/permission-denied"
+      ? "Firestore denied Save ID. Publish the signed-in write rules, then sign out and back in."
+      : `Could not save this ID (${code}). Check the browser console for details.`;
+    toast(message, "err", 8000);
   } finally {
     setBusy(submit, false, "Save ID");
   }

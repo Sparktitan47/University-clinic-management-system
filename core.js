@@ -182,6 +182,20 @@ function toast(message, type = "info", duration = 4000) {
   }, duration);
 }
 
+// Shared submit-button state helper. Dashboard pages do not load auth.js,
+// so this must live in the common script rather than only on the login page.
+function setBusy(btn, busy, label) {
+  if (!btn) return;
+  if (busy) {
+    btn.dataset.idleLabel = label || btn.textContent.trim();
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner"></span>';
+    return;
+  }
+  btn.disabled = false;
+  btn.textContent = label || btn.dataset.idleLabel || "Submit";
+}
+
 // ── Presence (Realtime Database) ─────────────────────────────
 function setupPresence(userId) {
   if (!rtdb) return;
