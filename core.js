@@ -43,7 +43,7 @@ function dashboardForRole(role) {
     pharmacist:  "pharmacist-dashboard.html",
     counsellor:  "counsellor-dashboard.html",
     admin:       "admin-dashboard.html",
-  }[key] || "login.html";
+  }[key] || "index.html";
 }
 
 function emailToClinicId(email = "") {
@@ -101,7 +101,7 @@ async function lookupRegistry(rawId) {
 function guardRoute(requiredRole) {
   return new Promise((resolve, reject) => {
     auth.onAuthStateChanged(async user => {
-      if (!user) { window.location.href = "login.html"; return reject(); }
+      if (!user) { window.location.href = "index.html"; return reject(); }
       let id   = localStorage.getItem("clinic-id");
       let role = localStorage.getItem("clinic-role");
       const authId = emailToClinicId(user.email);
@@ -119,7 +119,7 @@ function guardRoute(requiredRole) {
       if (id && authId && id.toLowerCase() !== authId.toLowerCase()) {
         clearClinicSession();
         await auth.signOut().catch(() => {});
-        window.location.href = "login.html";
+        window.location.href = "index.html";
         return reject();
       }
       if (id && !role) {
@@ -131,7 +131,7 @@ function guardRoute(requiredRole) {
       role = String(role || "").trim().toLowerCase();
       requiredRole = String(requiredRole || "").trim().toLowerCase();
       if (!id || role !== requiredRole) {
-        window.location.href = role ? dashboardForRole(role) : "login.html";
+        window.location.href = role ? dashboardForRole(role) : "index.html";
         return reject();
       }
       setupPresence(id);
@@ -221,7 +221,7 @@ async function goOfflineAndSignOut() {
   if (id && rtdb) await rtdb.ref(`/status/${id}`).set({ state: "offline", ts: firebase.database.ServerValue.TIMESTAMP }).catch(() => {});
   clearClinicSession();
   await auth.signOut();
-  window.location.href = "login.html";
+  window.location.href = "index.html";
 }
 
 function clinicLogoMarkup() {
