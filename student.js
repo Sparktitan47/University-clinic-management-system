@@ -148,7 +148,7 @@ async function loadDoctorInfo() {
     document.getElementById("docChatHeader").innerHTML = `<p style="padding:16px;color:var(--text-2)">No doctor assigned yet. Check back later or contact the clinic admin.</p>`;
     return;
   }
-  const docReg = await lookupRegistry(DOC_ID);
+  const docReg = await lookupDirectory(DOC_ID);
   if (!docReg) return;
 
   document.getElementById("docName").textContent = docReg.name || DOC_ID;
@@ -194,7 +194,7 @@ async function sendDocMessage() {
     textarea.value = "";
     textarea.style.height = "auto";
   } catch (err) {
-    console.error("Could not send doctor chat message", err);
+    console.error("Could not send doctor chat message", { code: err?.code || "unknown" });
     toast("Message could not be sent. Check your connection and Firestore rules.", "err");
   }
 }
@@ -233,7 +233,7 @@ async function loadCounsellorInfo() {
     document.getElementById("counChatHeader").innerHTML = `<p style="padding:16px;color:var(--text-2)">No counsellor assigned yet.</p>`;
     return;
   }
-  const reg = await lookupRegistry(COUN_ID);
+  const reg = await lookupDirectory(COUN_ID);
   if (!reg) return;
   document.getElementById("counName").textContent = reg.name || COUN_ID;
   document.getElementById("counId").textContent   = COUN_ID;
@@ -278,7 +278,7 @@ async function sendCounMessage() {
     textarea.value = "";
     textarea.style.height = "auto";
   } catch (err) {
-    console.error("Could not send counsellor chat message", err);
+    console.error("Could not send counsellor chat message", { code: err?.code || "unknown" });
     toast("Message could not be sent. Check your connection and Firestore rules.", "err");
   }
 }
@@ -320,30 +320,24 @@ document.getElementById("bookingForm").addEventListener("submit", async e => {
   const reason = document.getElementById("bookingReason").value.trim();
   if (!reason) return;
   const { type, staffId, slot } = pendingBooking;
-  const apptRef = db.collection("appointments").doc();
-  await apptRef.set({
-    id:         apptRef.id,
-    studentId:  ME.id,
-    studentName:ME.name,
-    staffId,
-    staffType:  type,
-    slot:       slot.label,
-    slotId:     slot.id,
-    reason,
-    status:     "pending",
-    createdAt:  firebase.firestore.FieldValue.serverTimestamp(),
-  });
-  // Mark slot as taken
-  const avSnap = await db.collection("availability").doc(staffId).get();
-  const slots  = avSnap.data()?.slots || [];
-  const updated = slots.map(s => s.id === slot.id ? { ...s, taken: true } : s);
-  await db.collection("availability").doc(staffId).update({ slots: updated });
-
-  toast("Appointment booked!", "success");
-  closeModal("bookingModal");
-  document.getElementById("bookingReason").value = "";
-  type === "doctor" ? loadDocSlots() : loadCounSlots();
-  loadMyAppointments();
+  const submit = e.submitter || e.target.querySelector('[type="submit"]');
+  setBusy(submit, true);
+  try {
+    await firebase.app().functions().httpsCallable("bookAppointment")({
+      staffId, staffType: type, slotId: slot.id, reason,
+    });
+    toast("Appointment booked!", "success");
+    closeModal("bookingModal");
+    document.getElementById("bookingReason").value = "";
+    type === "doctor" ? loadDocSlots() : loadCounSlots();
+    loadMyAppointments();
+  } catch (err) {
+    toast(err?.code === "functions/failed-precondition"
+      ? "That slot was just booked. Choose another time."
+      : "Could not book the appointment. Please try again.", "err");
+  } finally {
+    setBusy(submit, false, "Request appointment");
+  }
 });
 
 // ── My appointments ───────────────────────────────────────────
@@ -357,12 +351,13 @@ async function loadMyAppointments() {
     const d = doc.data();
     const item = document.createElement("div");
     item.className = "appt-item";
+    const status = d.status === "confirmed" ? "confirmed" : d.status === "cancelled" ? "cancelled" : "pending";
     item.innerHTML = `
       <div class="appt-item-info">
-        <strong>${d.slot}</strong>
-        <span>${d.staffId} - ${d.reason}</span>
+        <strong>${escHtml(d.slot || "")}</strong>
+        <span>${escHtml(d.staffId || "")} - ${escHtml(d.reason || "")}</span>
       </div>
-      <span class="badge badge-${d.status === "confirmed" ? "green" : d.status === "cancelled" ? "red" : "amber"}">${d.status}</span>`;
+      <span class="badge badge-${status === "confirmed" ? "green" : status === "cancelled" ? "red" : "amber"}">${status}</span>`;
     list.appendChild(item);
   });
 }
@@ -379,10 +374,10 @@ async function loadPharmacy() {
     const card = document.createElement("div");
     card.className = "card drug-card";
     card.innerHTML = `
-      <div class="drug-name">${d.name}</div>
-      <div class="drug-type">${d.category || "Medication"}</div>
+      <div class="drug-name">${escHtml(d.name || "")}</div>
+      <div class="drug-type">${escHtml(d.category || "Medication")}</div>
       <span class="badge badge-${d.available ? "green" : "red"}">${d.available ? "In stock" : "Out of stock"}</span>
-      ${d.available ? `<div class="drug-qty">${d.qty} ${d.unit || "units"} remaining</div>` : ""}`;
+      ${d.available ? `<div class="drug-qty">${Number(d.qty) || 0} ${escHtml(d.unit || "units")} remaining</div>` : ""}`;
     grid.appendChild(card);
   });
 }
@@ -406,7 +401,7 @@ function autoGrow(el) {
 }
 
 function escHtml(str) {
-  return str.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/\n/g,"<br>");
+  return String(str ?? "").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/\"/g,"&quot;").replace(/'/g,"&#39;").replace(/\n/g,"<br>");
 }
 
 function tsMillis(ts) {

@@ -1,27 +1,130 @@
 rules_version = '2';
 
-// Functional baseline for this browser-only clinic prototype.
-// Deploy in Firebase Console > Firestore Database > Rules.
-// For a production clinic, enforce identity and role checks with custom claims
-// and trusted server-side functions rather than browser-controlled role data.
+// Access is based only on server-issued Firebase Auth custom claims.
+// Required claims: clinicId, role. Never set these claims from browser code.
 service cloud.firestore {
   match /databases/{database}/documents {
-    function signedIn() {
-      return request.auth != null;
-    }
+    function signedIn() { return request.auth != null; }
+    function clinicId() { return request.auth.token.clinicId; }
+    function role() { return request.auth.token.role; }
+    function isRole(value) { return signedIn() && role() == value; }
+    function isAdmin() { return isRole('admin'); }
+    function isStudent() { return isRole('student'); }
+    function isClinicalStaff() { return signedIn() && role() in ['doctor', 'counsellor']; }
 
-    // A person must be able to read their known ID before signing in. Listing
-    // remains limited to signed-in users so the registry cannot be enumerated.
     match /registry/{id} {
-      allow get: if true;
-      allow list: if signedIn();
-      allow create, update, delete: if signedIn();
+      allow get: if signedIn() && (id == clinicId() || isAdmin());
+      allow list: if isAdmin();
+      allow create, update, delete: if isAdmin();
     }
 
-    // Chat, appointments, availability, reports, pharmacy and shared site
-    // settings are all accessed after Firebase Authentication completes.
+    match /directory/{id} {
+      allow get: if signedIn();
+      allow list: if false;
+      allow create, update, delete: if isAdmin();
+    }
+
+    match /chats/{threadId} {
+      function validParticipants(data) {
+        let people = data.participants;
+        let other = people[0] == clinicId() ? people[1] : people[0];
+        let registry = get(/databases/$(database)/documents/registry/$(other)).data;
+        return people is list && people.size() == 2 && clinicId() in people
+          && ((isStudent() && other in [registry.assignedDoctor, registry.assignedCounsellor])
+            || (isClinicalStaff() && (registry.assignedDoctor == clinicId()
+              || registry.assignedCounsellor == clinicId())));
+      }
+      function participant() {
+        return signedIn() && resource.data.participants is list
+          && clinicId() in resource.data.participants;
+      }
+      allow get, list: if participant();
+      allow create: if signedIn()
+        && request.resource.data.participants is list
+        && request.resource.data.participants.size() == 2
+        && validParticipants(request.resource.data);
+      allow update: if participant()
+        && request.resource.data.participants == resource.data.participants
+        && request.resource.data.diff(resource.data).affectedKeys()
+          .hasOnly(['lastMessage', 'lastTs', 'unread_' + clinicId(),
+            'unread_' + resource.data.participants[0], 'unread_' + resource.data.participants[1]]);
+      allow delete: if isAdmin();
+
+      match /messages/{messageId} {
+        function threadParticipant() {
+          let thread = get(/databases/$(database)/documents/chats/$(threadId));
+          return signedIn() && thread.data.participants is list
+            && clinicId() in thread.data.participants;
+        }
+        function threadParticipantAfter() {
+          let thread = getAfter(/databases/$(database)/documents/chats/$(threadId));
+          return signedIn() && thread.data.participants is list
+            && clinicId() in thread.data.participants;
+        }
+        allow read: if threadParticipant();
+        allow create: if threadParticipantAfter()
+          && request.resource.data.senderId == clinicId()
+          && request.resource.data.senderName == get(/databases/$(database)/documents/registry/$(clinicId())).data.name
+          && request.resource.data.keys().hasOnly(['text', 'senderId', 'senderName', 'ts'])
+          && request.resource.data.text is string
+          && request.resource.data.text.size() > 0
+          && request.resource.data.text.size() <= 4000;
+        allow update, delete: if isAdmin();
+      }
+    }
+
+    match /appointments/{appointmentId} {
+      function ownsAppointment() {
+        return signedIn() && resource.data.studentId == clinicId();
+      }
+      function assignedStaff() {
+        return isClinicalStaff() && resource.data.staffId == clinicId();
+      }
+      allow read: if ownsAppointment() || assignedStaff() || isAdmin();
+      // Creation is restricted to the trusted bookAppointment callable.
+      allow create: if false;
+      allow update: if (ownsAppointment()
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['studentSortedSeen', 'studentSeenAt']));
+      allow delete: if isAdmin();
+    }
+
+    match /availability/{staffId} {
+      allow read: if signedIn();
+      allow create, update, delete: if signedIn()
+        && ((isRole('doctor') || isRole('counsellor')) && staffId == clinicId() || isAdmin());
+    }
+
+    match /reports/{reportId} {
+      allow read: if isAdmin() || (signedIn() && resource.data.studentId == clinicId());
+      allow create: if isStudent()
+        && request.resource.data.studentId == clinicId()
+        && request.resource.data.keys().hasOnly(['subject', 'body', 'studentId', 'studentName',
+          'createdAt', 'status', 'studentSortedSeen', 'type'])
+        && request.resource.data.subject is string
+        && request.resource.data.subject.size() <= 200
+        && request.resource.data.body is string
+        && request.resource.data.body.size() > 0
+        && request.resource.data.body.size() <= 5000
+        && request.resource.data.status == 'new';
+      allow update: if isAdmin()
+        || (signedIn() && resource.data.studentId == clinicId()
+          && request.resource.data.diff(resource.data).affectedKeys()
+            .hasOnly(['studentSortedSeen', 'studentSeenAt']));
+      allow delete: if isAdmin();
+    }
+
+    match /pharmacy/{itemId} {
+      allow read: if signedIn();
+      allow create, update, delete: if isRole('pharmacist') || isAdmin();
+    }
+
+    match /siteSettings/{settingId} {
+      allow read: if signedIn();
+      allow create, update, delete: if isAdmin();
+    }
+
     match /{document=**} {
-      allow read, write: if signedIn();
+      allow read, write: if false;
     }
   }
 }

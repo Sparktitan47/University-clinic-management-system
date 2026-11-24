@@ -1,0 +1,13 @@
+{
+  "rules": {
+    ".read": false,
+    ".write": false,
+    "status": {
+      "$clinicId": {
+        ".read": "auth != null && (auth.token.clinicId === $clinicId || auth.token.role in ['doctor', 'counsellor', 'admin'])",
+        ".write": "auth != null && auth.token.clinicId === $clinicId",
+        ".validate": "newData.hasChildren(['state', 'ts']) && newData.child('state').val() in ['online', 'offline']"
+      }
+    }
+  }
+}

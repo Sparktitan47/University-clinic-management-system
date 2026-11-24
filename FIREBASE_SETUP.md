@@ -1,148 +1,43 @@
 # University Clinic Firebase Setup
 
-## 1. Enable Authentication
+## Security prerequisites
 
-In Firebase Console:
+This app now requires Firebase Authentication custom claims. The browser must never assign clinic IDs or roles. Do not restore the old permissive Firestore rules or browser signup flow.
 
-1. Open your project.
-2. Go to Authentication.
-3. Open Sign-in method.
-4. Enable Email/Password.
+Required Auth custom claims:
 
-Users still type their university or staff ID. The app converts that ID into an internal Firebase Auth email.
-
-## 2. Create Recognised IDs
-
-Open Firestore Database and create this collection:
-
-```txt
-registry
+```json
+{ "clinicId": "Student-2024118", "role": "student" }
 ```
 
-Each recognised student or staff member needs one document. The document ID must exactly match the ID they type on the login page.
+Supported roles: `student`, `doctor`, `counsellor`, `pharmacist`, and `admin`.
 
-Student example:
+## Provision accounts
 
-```txt
-Collection: registry
-Document ID: Student-2024118
+1. In Firebase Console, create the Authentication user using an administrator-verified email address.
+2. Create the matching `registry/{clinicId}` Firestore document through a trusted admin process. Store only necessary fields, including `name`, `role`, the account email in `authEmail` (or `recoveryEmail` for existing records), and, for students, `assignedDoctor` and `assignedCounsellor`.
+3. On a trusted administrator workstation, install the function dependencies with `npm --prefix functions install` and configure Application Default Credentials for the correct Firebase project. Never put a service-account key in this web project or publish it.
+4. Run `node scripts/set-user-claims.js <auth-uid> <clinic-id> <role>`. The script checks that the registry role and Auth email match before it issues the claims.
+5. Have the user sign out and back in so Firebase refreshes the ID token.
 
-name: Azeez
-role: student
-signedUp: false
-assignedDoctor: DOC-001
-assignedCounsellor: COUN-001
-```
+The registry ID must be an exact document ID. For the initial administrator, seed the registry document and Auth account through a trusted process before issuing the admin claim. Restrict who can run the claim-provisioning script; anyone with project Admin SDK credentials can grant roles.
 
-Doctor example:
+## Deploy access rules
 
-```txt
-Collection: registry
-Document ID: DOC-001
+Review `firestore.rules`, then deploy the Firestore rules, Realtime Database rules, and booking function to the intended project. From the project directory, install function dependencies with `npm --prefix functions install`, then deploy with `firebase deploy --project uni-clinic-ce45a --only firestore:rules,database,functions`. Confirm the Firebase CLI is authenticated to the intended project before deploying. The supplied rules fail closed for collections without an explicit match.
 
-name: Dr Musa
-role: doctor
-signedUp: false
-```
+The callable `bookAppointment` function uses a Firestore transaction to validate the student's assignment, claim the slot exactly once, and create the appointment atomically. Enable Firebase App Check for the web app and enforce it on callable functions before production use; the callable currently requires a valid signed-in student claim but does not enforce App Check because no site key/provider configuration is supplied.
 
-Counsellor example:
+If Realtime Database is enabled, deploy `database.rules.json` to Realtime Database > Rules as well. The current `firebase-config.js` does not specify `databaseURL`, so presence is disabled until that is configured.
 
-```txt
-Collection: registry
-Document ID: COUN-001
+Do not use live clinic data until the rules are deployed and tested in the Firebase Rules simulator with student, doctor, counsellor, pharmacist, admin, and unauthenticated identities.
 
-name: Mrs Ade
-role: counsellor
-signedUp: false
-```
+## Sign-in and account recovery
 
-Pharmacist example:
+Users sign in with their provisioned email and password. The app reads role and clinic ID from verified Auth custom claims; browser storage is used only for display convenience and is not an authorization source. Self-service signup is intentionally disabled. Password reset uses Firebase Auth and does not look up clinic IDs in a public registry.
 
-```txt
-Collection: registry
-Document ID: PHR-001
+The Firebase web API key in `firebase-config.js` is browser configuration, not a private credential. Restrict it in Google Cloud Console to the necessary APIs and approved web origins. Keep all Admin SDK credentials outside this static web app.
 
-name: Pharm Grace
-role: pharmacist
-signedUp: false
-```
+## Hosting security headers
 
-Admin example:
-
-```txt
-Collection: registry
-Document ID: ADMIN-001
-
-name: Clinic Admin
-role: admin
-signedUp: false
-```
-
-After an ID is added, that person should use Sign up once to create their private password. The app then changes `signedUp` to `true`.
-
-## 3. Use the Admin Dashboard
-
-After `ADMIN-001` signs up and logs in, the app opens:
-
-```txt
-admin-dashboard.html
-```
-
-The admin can:
-
-- Add recognised student and staff IDs.
-- Assign each student to a doctor and counsellor.
-- View submitted issue reports.
-
-## 4. Test Flow
-
-1. Add `ADMIN-001` in Firestore.
-2. Sign up as `ADMIN-001`.
-3. In the admin dashboard, add:
-   - at least one student
-   - at least one doctor
-   - at least one counsellor
-   - at least one pharmacist
-4. Assign the student to a doctor and counsellor.
-5. Sign up as the doctor and set availability.
-6. Sign up as the counsellor and set availability.
-7. Sign up as the pharmacist and add medications.
-8. Sign up as the student.
-9. Test student messages, appointment requests, pharmacy view, and issue reports.
-
-## 5. Dashboard Files
-
-Role redirects are controlled in `core.js`:
-
-```txt
-student     -> student-dashboard.html
-doctor      -> doctor-dashboard.html
-pharmacist  -> pharmacist-dashboard.html
-counsellor  -> counsellor-dashboard.html
-admin       -> admin-dashboard.html
-```
-
-## 6. Firestore Collections Used
-
-```txt
-registry
-chats
-appointments
-availability
-pharmacy
-reports
-```
-
-## 7. Development Rules
-
-The app needs a known registry ID to be readable before sign-in, and it needs
-signed-in users to create chat messages and update the registry during signup.
-
-Copy the contents of `firestore.rules` into Firebase Console > Firestore
-Database > Rules, then click **Publish**. This restores the Admin dashboard's
-ability to add, update, assign, and remove IDs and allows the live chat to save
-both its conversation and message together.
-
-This rule set is a functional baseline for this browser-only prototype. Before
-using real clinic data, move authorisation to server-side functions and use
-Firebase custom claims to enforce per-user, per-role access.
+The repository does not identify the hosting provider, so headers must be applied in the actual hosting configuration. Enforce HTTPS and HSTS; set a restrictive Content-Security-Policy with `frame-ancestors 'none'`, `object-src 'none'`, and only required Firebase and Google Fonts origins; set `Referrer-Policy: strict-origin-when-cross-origin`, `X-Content-Type-Options: nosniff`, and `Cache-Control: no-store` for authenticated application pages. Verify the deployed response headers in a browser or with the hosting provider's header inspector before launch.

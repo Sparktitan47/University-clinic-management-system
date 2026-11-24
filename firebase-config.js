@@ -15,14 +15,16 @@ firebase.initializeApp(firebaseConfig);
 
 const auth = firebase.auth();
 const db   = firebase.firestore();
+// Remove any disk cache created by earlier versions, then use Firestore's
+// default in-memory cache only. The guard awaits this before dashboard reads.
+const clinicCacheCleanup = db.clearPersistence().catch(() => {});
 let rtdb = null;
 if (firebaseConfig.databaseURL) {
   try {
     rtdb = firebase.database();
   } catch (err) {
-    console.warn("Realtime Database is not configured yet. Presence features are disabled.", err);
+    console.warn("Realtime Database is not configured; presence features are disabled.");
   }
 }
 
-// Enable offline caching so the UI doesn't go blank on a slow network
-db.enablePersistence({ synchronizeTabs: true }).catch(() => {});
+// Do not enable persistent browser caching for clinic conversations or records.

@@ -7,35 +7,12 @@ attachThemeToggle("themeToggle");
 // If session is still active, skip straight to the dashboard.
 auth.onAuthStateChanged(async user => {
   if (user) {
-    const authId = emailToClinicId(user.email);
-    let role = localStorage.getItem("clinic-role");
-    let id = localStorage.getItem("clinic-id");
-    if (!id && authId) {
-      id = authId;
-      localStorage.setItem("clinic-id", id);
+    const claims = (await user.getIdTokenResult().catch(() => ({ claims: {} }))).claims;
+    const role = String(claims.role || "").trim().toLowerCase();
+    const id = String(claims.clinicId || "");
+    if (id && ["student", "doctor", "counsellor", "pharmacist", "admin"].includes(role)) {
+      window.location.href = dashboardForRole(role);
     }
-    if (!id && !authId) {
-      const entry = await lookupRegistryByAuthEmail(user.email).catch(() => null);
-      if (entry?.id) {
-        id = entry.id;
-        role = entry.role || detectRole(entry.id);
-        localStorage.setItem("clinic-id", entry.id);
-        if (role) localStorage.setItem("clinic-role", String(role).trim().toLowerCase());
-        if (entry.name) localStorage.setItem("clinic-name", entry.name);
-      }
-    }
-    if (id && authId && id.toLowerCase() !== authId.toLowerCase()) {
-      clearClinicSession();
-      await auth.signOut().catch(() => {});
-      return;
-    }
-    if (!role && id) {
-      const entry = await lookupRegistry(id).catch(() => null);
-      role = entry?.role || detectRole(id);
-      if (role) localStorage.setItem("clinic-role", String(role).trim().toLowerCase());
-      if (entry?.name) localStorage.setItem("clinic-name", entry.name);
-    }
-    if (role) window.location.href = dashboardForRole(role);
   }
 });
 
@@ -75,71 +52,39 @@ document.getElementById("loginForm").addEventListener("submit", async e => {
   setErr("loginIdError", "");
   setErr("loginPasswordError", "");
 
-  const rawId = canonicalClinicId(document.getElementById("loginId").value);
+  const email = document.getElementById("loginId").value.trim().toLowerCase();
   const pw = document.getElementById("loginPassword").value;
   const btn = document.getElementById("loginSubmit");
 
-  if (!isValidIdFormat(rawId)) return setErr("loginIdError", "ID format not recognised - check the prefix.");
+  if (!isUsableRecoveryEmail(email)) return setErr("loginIdError", "Enter the email address assigned to your clinic account.");
   if (!pw) return setErr("loginPasswordError", "Enter your password.");
 
   setBusy(btn, true);
   try {
     clearClinicSession();
-    const entry = await lookupRegistry(rawId);
-    if (!entry) {
-      setErr("loginIdError", "ID not on file. Contact the clinic admin.");
-      return;
+    await auth.signInWithEmailAndPassword(email, pw);
+    const claims = (await auth.currentUser.getIdTokenResult(true)).claims;
+    const id = String(claims.clinicId || "");
+    const role = String(claims.role || "").trim().toLowerCase();
+    if (!id || !["student", "doctor", "counsellor", "pharmacist", "admin"].includes(role)) {
+      await auth.signOut();
+      throw new Error("This account has not been provisioned for clinic access.");
     }
-    // Older registry records can retain the original internal login email
-    // while password recovery is attached to a real email. Try every email
-    // legitimately associated with this ID before reporting a bad password.
-    const loginEmails = [...new Set([
-      String(entry.authEmail || "").trim().toLowerCase(),
-      String(entry.recoveryEmail || "").trim().toLowerCase(),
-      idToEmail(rawId),
-    ].filter(Boolean))];
-    let signInError;
-    for (const email of loginEmails) {
-      try {
-        await auth.signInWithEmailAndPassword(email, pw);
-        signInError = null;
-        break;
-      } catch (err) {
-        signInError = err;
-        // Configuration, throttling, and network failures cannot be resolved
-        // by trying another identifier, so report them immediately.
-        if (err?.code !== "auth/invalid-credential" && err?.code !== "auth/wrong-password" && err?.code !== "auth/user-not-found") break;
-      }
-    }
-    if (signInError) throw signInError;
-    await attachRecoveryEmailIfPossible(rawId, entry).catch(() => {});
-    const role = String(entry.role || detectRole(rawId) || "").trim().toLowerCase();
-    if (!entry.signedUp) {
-      await db.collection("registry").doc(rawId).set({
-        signedUp: true,
-        signedUpAt: firebase.firestore.FieldValue.serverTimestamp(),
-      }, { merge: true }).catch(() => {});
-    }
-    localStorage.setItem("clinic-id", rawId);
-    localStorage.setItem("clinic-role", role);
-    localStorage.setItem("clinic-name", entry.name || rawId);
     window.location.href = dashboardForRole(role);
   } catch (err) {
     // Keep the underlying Firebase error visible for support and deployment
     // diagnostics. The UI message below remains safe for end users.
     console.error("Clinic login failed", {
       code: err?.code || "unknown",
-      message: err?.message || String(err),
-      id: rawId,
     });
     if (err.code === "auth/invalid-credential" || err.code === "auth/wrong-password") {
-      setErr("loginPasswordError", "Incorrect password.");
+      setErr("loginPasswordError", "Incorrect email or password.");
     } else if (err.code === "auth/operation-not-allowed") {
       setErr("loginIdError", "Password sign-in is not enabled. Ask the clinic admin to enable Email/Password in Firebase Authentication.");
     } else if (err.code === "auth/user-not-found") {
-      setErr("loginIdError", "This ID does not have a password account yet. Use Sign up first.");
+      setErr("loginIdError", "No clinic account is available for these credentials. Contact the clinic administrator.");
     } else if (err.code === "permission-denied" || err.code === "firestore/permission-denied") {
-      setErr("loginIdError", "The registry cannot be read. Ask the clinic admin to check Firestore security rules.");
+      setErr("loginIdError", "This account is not provisioned for clinic access. Contact the clinic administrator.");
     } else if (err.code === "unavailable" || err.code === "firestore/unavailable") {
       setErr("loginIdError", "Cannot reach the clinic database. Check your internet connection and try again.");
     } else if (err.code === "auth/too-many-requests") {
@@ -150,70 +95,6 @@ document.getElementById("loginForm").addEventListener("submit", async e => {
   } finally {
     setBusy(btn, false, "Log in");
   }
-});
-
-async function attachRecoveryEmailIfPossible(rawId, entry) {
-  const user = auth.currentUser;
-  const recoveryEmail = String(entry.recoveryEmail || "").trim().toLowerCase();
-  if (!user || !isUsableRecoveryEmail(recoveryEmail) || isUsableRecoveryEmail(entry.authEmail)) return;
-  if (emailToClinicId(user.email)) {
-    await user.updateEmail(recoveryEmail);
-    await db.collection("registry").doc(rawId).set({
-      authEmail: recoveryEmail,
-      updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
-    }, { merge: true });
-  }
-}
-
-// SIGN UP
-let verifiedEntry = null;
-
-// Step 1: verify ID exists in registry.
-document.getElementById("verifyIdBtn").addEventListener("click", async () => {
-  setErr("signupIdError", "");
-
-  const rawId = canonicalClinicId(document.getElementById("signupId").value);
-  const btn = document.getElementById("verifyIdBtn");
-
-  if (!isValidIdFormat(rawId)) return setErr("signupIdError", "ID format not recognised - check the prefix.");
-
-  setBusy(btn, true);
-  try {
-    const entry = await lookupRegistry(rawId);
-    if (!entry) {
-      setErr("signupIdError", "ID not on file. Ask the admin to register it first.");
-      return;
-    }
-    if (entry.signedUp) {
-      setErr("signupIdError", "This ID already has a password - use the Log in tab.");
-      return;
-    }
-
-    verifiedEntry = entry;
-    verifiedEntry.role = String(verifiedEntry.role || detectRole(rawId) || "").trim().toLowerCase();
-    document.getElementById("registryName").textContent = entry.name || rawId;
-    const savedRecoveryEmail = String(entry.recoveryEmail || entry.authEmail || "").trim().toLowerCase();
-    if (isUsableRecoveryEmail(savedRecoveryEmail)) {
-      document.getElementById("signupRecoveryEmail").value = savedRecoveryEmail;
-    }
-    document.getElementById("signupStep1").style.display = "none";
-    document.getElementById("signupStep2").style.display = "block";
-    document.getElementById("stepDot1").classList.add("done");
-    document.getElementById("stepDot2").classList.add("active");
-  } catch {
-    setErr("signupIdError", "Could not verify ID right now - try again.");
-  } finally {
-    setBusy(btn, false, "Verify ID");
-  }
-});
-
-document.getElementById("backToStep1").addEventListener("click", () => {
-  verifiedEntry = null;
-  document.getElementById("signupStep2").style.display = "none";
-  document.getElementById("signupStep1").style.display = "block";
-  document.getElementById("stepDot1").classList.remove("done");
-  document.getElementById("stepDot2").classList.remove("active");
-  document.getElementById("signupId").value = "";
 });
 
 document.getElementById("forgotPasswordLink")?.addEventListener("click", () => {
@@ -229,123 +110,22 @@ document.getElementById("backToLoginFromForgot")?.addEventListener("click", () =
 
 document.getElementById("forgotForm")?.addEventListener("submit", async e => {
   e.preventDefault();
-  await handlePasswordResetRequest(false);
-});
-
-document.getElementById("contactAdminReset")?.addEventListener("click", async () => {
-  await handlePasswordResetRequest(true);
-});
-
-async function handlePasswordResetRequest(forceAdmin) {
-  setErr("forgotIdError", "");
-  const rawId = canonicalClinicId(document.getElementById("forgotId").value);
+  const email = document.getElementById("forgotId").value.trim().toLowerCase();
+  if (!isUsableRecoveryEmail(email)) return setErr("forgotIdError", "Enter your account email address.");
   const submitBtn = document.getElementById("forgotSubmit");
-  const adminBtn = document.getElementById("contactAdminReset");
-  if (!isValidIdFormat(rawId)) return setErr("forgotIdError", "ID format not recognised - check the prefix.");
-
-  setBusy(forceAdmin ? adminBtn : submitBtn, true);
+  setBusy(submitBtn, true);
   try {
-    const entry = await lookupRegistry(rawId);
-    if (!entry) return setErr("forgotIdError", "ID not on file. Contact the clinic admin.");
-    const authEmail = String(entry.authEmail || "").trim().toLowerCase();
-    const recoveryEmail = String(entry.recoveryEmail || "").trim().toLowerCase();
-    const resetEmail = isUsableRecoveryEmail(authEmail) ? authEmail : recoveryEmail;
-    if (!forceAdmin && isUsableRecoveryEmail(resetEmail)) {
-      await auth.sendPasswordResetEmail(resetEmail);
-      toast(`Password reset link sent to ${maskEmail(resetEmail)}. Check inbox or spam.`, "success", 7500);
-      showAuthForm("login");
-      return;
-    }
-
-    await db.collection("reports").add({
-      subject: "Password reset request",
-      body: `${entry.name || rawId} requested an admin password reset for ${rawId}.`,
-      studentId: rawId,
-      studentName: entry.name || rawId,
-      type: "password-reset",
-      status: "new",
-      studentSortedSeen: true,
-      createdAt: firebase.firestore.FieldValue.serverTimestamp(),
-    });
-    toast("Admin reset request sent. The clinic admin will see it in Issue reports.", "success", 6500);
+    await auth.sendPasswordResetEmail(email);
+    toast("If the account is eligible, a password reset email will be sent.", "success", 7000);
     showAuthForm("login");
   } catch (err) {
-    if (err.code === "auth/user-not-found" || err.code === "auth/invalid-email") {
-      setErr("forgotIdError", "Firebase has no password account attached to that recovery email yet. Use Contact admin to reset this older account.");
-    } else if (err.code === "auth/too-many-requests") {
-      setErr("forgotIdError", "Too many reset attempts. Please wait a bit and try again.");
-    } else {
-      setErr("forgotIdError", "Could not send the reset email. Check Firebase Email/Password auth is enabled, then try again.");
-    }
-  } finally {
-    setBusy(submitBtn, false, "Send recovery email");
-    setBusy(adminBtn, false, "Contact admin to reset account");
-  }
-}
+    if (err.code === "auth/too-many-requests") setErr("forgotIdError", "Too many attempts. Please wait and try again.");
+    else setErr("forgotIdError", "Could not send the reset email. Contact the clinic administrator.");
+  } finally { setBusy(submitBtn, false, "Send recovery email"); }
+});
 
-function maskEmail(email = "") {
-  const [name, domain] = String(email).split("@");
-  if (!name || !domain) return "your recovery email";
-  return `${name.slice(0, 2)}${name.length > 2 ? "***" : ""}@${domain}`;
-}
-
-// Step 2: create password.
 document.getElementById("signupForm").addEventListener("submit", async e => {
   e.preventDefault();
-  if (!verifiedEntry) return;
-
-  setErr("signupPasswordError", "");
-  setErr("signupPasswordConfirmError", "");
-
-  const pw = document.getElementById("signupPassword").value;
-  const pwConf = document.getElementById("signupPasswordConfirm").value;
-  const recoveryEmail = document.getElementById("signupRecoveryEmail").value.trim().toLowerCase();
-  const btn = document.getElementById("signupSubmit");
-
-  setErr("signupRecoveryEmailError", "");
-  if (pw.length < 8) return setErr("signupPasswordError", "Use at least 8 characters.");
-  if (pw !== pwConf) return setErr("signupPasswordConfirmError", "Passwords do not match.");
-  if (!isUsableRecoveryEmail(recoveryEmail)) return setErr("signupRecoveryEmailError", "Enter a valid email you can access.");
-
-  setBusy(btn, true);
-  let accountCreated = false;
-  try {
-    await auth.createUserWithEmailAndPassword(recoveryEmail, pw);
-    accountCreated = true;
-    await db.collection("registry").doc(verifiedEntry.id).update({
-      authEmail: recoveryEmail,
-      recoveryEmail,
-      signedUp: true,
-      signedUpAt: firebase.firestore.FieldValue.serverTimestamp(),
-    });
-    const role = String(verifiedEntry.role || detectRole(verifiedEntry.id) || "").trim().toLowerCase();
-    localStorage.setItem("clinic-id", verifiedEntry.id);
-    localStorage.setItem("clinic-role", role);
-    localStorage.setItem("clinic-name", verifiedEntry.name || verifiedEntry.id);
-    toast("Account created - welcome!", "success");
-    setTimeout(() => window.location.href = dashboardForRole(role), 700);
-  } catch (err) {
-    console.error("Clinic signup failed", {
-      code: err?.code || "unknown",
-      message: err?.message || String(err),
-      id: verifiedEntry?.id,
-    });
-    // A blocked registry update after Auth account creation leaves an unusable
-    // account behind. Remove only the account created by this submission.
-    if (accountCreated && (err?.code === "permission-denied" || err?.code === "firestore/permission-denied")) {
-      await auth.currentUser?.delete().catch(cleanupErr => console.warn("Could not remove incomplete signup account", cleanupErr));
-    }
-    if (err.code === "auth/email-already-in-use") {
-      setErr("signupRecoveryEmailError", "This recovery email already belongs to another account.");
-    } else if (err.code === "auth/weak-password") {
-      setErr("signupPasswordError", "Choose a stronger password.");
-    } else if (err.code === "auth/operation-not-allowed") {
-      setErr("signupPasswordError", "Email/Password sign-in is not enabled in Firebase Authentication.");
-    } else if (err.code === "permission-denied" || err.code === "firestore/permission-denied") {
-      setErr("signupPasswordError", "Firebase created the password account but Firestore blocked its registry update. Update the Firestore rules, then try again.");
-    } else {
-      setErr("signupPasswordError", "Something went wrong. Please try again.");
-    }
-    setBusy(btn, false, "Create account & continue");
-  }
+  setErr("signupIdError", "Self-service signup is disabled. Ask the clinic administrator to provision your account.");
+  setErr("signupPasswordError", "Account roles and IDs must be assigned by the administrator.");
 });

@@ -261,12 +261,11 @@
     <!-- ============ LOG IN ============ -->
     <form class="auth-form active" id="loginForm" novalidate>
       <h2>Welcome back</h2>
-      <p class="auth-sub">Enter your ID and password to continue.</p>
+      <p class="auth-sub">Enter the email address assigned to your clinic account.</p>
 
       <div class="field">
-        <label for="loginId">University / Staff ID</label>
-        <input id="loginId" type="text" placeholder="e.g. Student-2024118" autocomplete="username" required />
-        <span class="id-hint">Student-xxxx · DOC-xxx · PHR-xxx · COUN-xxx · ADMIN-001</span>
+        <label for="loginId">Account email</label>
+        <input id="loginId" type="email" placeholder="name@example.edu" autocomplete="username" required />
         <span class="field-error" id="loginIdError"></span>
       </div>
 
@@ -285,76 +284,25 @@
     <!-- ============ FORGOT PASSWORD ============ -->
     <form class="auth-form" id="forgotForm" novalidate>
       <h2>Reset password</h2>
-      <p class="auth-sub">Enter your ID. If a recovery email is attached, we will send a reset link there.</p>
+      <p class="auth-sub">Enter your clinic account email. If it is eligible, a reset link will be sent.</p>
 
       <div class="field">
-        <label for="forgotId">University / Staff ID</label>
-        <input id="forgotId" type="text" placeholder="e.g. Student-2024118" autocomplete="username" required />
+        <label for="forgotId">Account email</label>
+        <input id="forgotId" type="email" placeholder="name@example.edu" autocomplete="username" required />
         <span class="field-error" id="forgotIdError"></span>
       </div>
 
       <button type="submit" class="btn btn-primary" id="forgotSubmit" style="width:100%;">
         Send recovery email
       </button>
-      <button type="button" class="btn btn-ghost" id="contactAdminReset" style="width:100%; margin-top: 8px;">
-        Contact admin to reset account
-      </button>
       <button type="button" class="inline-action" id="backToLoginFromForgot">Back to log in</button>
     </form>
 
-    <!-- ============ SIGN UP (2 steps: verify ID -> create password) ============ -->
+    <!-- ============ ADMIN-PROVISIONED ACCOUNT NOTICE ============ -->
     <form class="auth-form" id="signupForm" novalidate>
-      <h2>Create your password</h2>
-      <p class="auth-sub">Your ID is already on file. Set a password to activate your account.</p>
-
-      <div class="step-indicator">
-        <span class="active" id="stepDot1"></span>
-        <span id="stepDot2"></span>
-      </div>
-
-      <!-- Step 1: verify ID exists in registry -->
-      <div id="signupStep1">
-        <div class="field">
-          <label for="signupId">University / Staff ID</label>
-          <input id="signupId" type="text" placeholder="e.g. DOC-014" autocomplete="username" required />
-          <span class="field-error" id="signupIdError"></span>
-        </div>
-        <button type="button" class="btn btn-primary" id="verifyIdBtn" style="width:100%;">
-          Verify ID
-        </button>
-      </div>
-
-      <!-- Step 2: shown after ID is verified -->
-      <div id="signupStep2" style="display:none;">
-        <div class="registry-preview show" id="registryPreview">
-          <span class="status-dot is-online"></span>
-          <span>ID recognised — welcome, <strong id="registryName"></strong></span>
-        </div>
-
-        <div class="field">
-          <label for="signupRecoveryEmail">Recovery email</label>
-          <input id="signupRecoveryEmail" type="email" autocomplete="email" placeholder="you@example.com" required />
-          <span class="id-hint">Used only for password reset if you forget your password.</span>
-          <span class="field-error" id="signupRecoveryEmailError"></span>
-        </div>
-        <div class="field">
-          <label for="signupPassword">Create password</label>
-          <input id="signupPassword" type="password" autocomplete="new-password" required />
-          <span class="field-error" id="signupPasswordError"></span>
-        </div>
-        <div class="field">
-          <label for="signupPasswordConfirm">Confirm password</label>
-          <input id="signupPasswordConfirm" type="password" autocomplete="new-password" required />
-          <span class="field-error" id="signupPasswordConfirmError"></span>
-        </div>
-
-        <button type="submit" class="btn btn-primary" id="signupSubmit" style="width:100%;">
-          Create account & continue
-        </button>
-        <button type="button" class="btn btn-ghost" id="backToStep1" style="width:100%; margin-top: 8px;">
-          ← Use a different ID
-        </button>
-      </div>
+      <h2>Account access</h2>
+      <p class="auth-sub">Clinic accounts are created by an administrator. Contact the clinic administrator to request access.</p>
+      <span class="field-error" id="signupIdError"></span>
     </form>
   </div>
 </div>

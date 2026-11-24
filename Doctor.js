@@ -39,14 +39,14 @@ function renderConvoItem(threadId, data) {
   const unreadKey = `unread_${ME.id}`;
   const unread = data[unreadKey] || 0;
 
-  lookupRegistry(otherId).then(reg => {
+  lookupDirectory(otherId).then(reg => {
     const name = reg?.name || otherId;
     const item = document.createElement("div");
     item.className = `convo-item${unread ? " unread" : ""}${activeThread === threadId ? " active" : ""}`;
     item.dataset.thread = threadId;
     item.dataset.other = otherId;
     item.innerHTML = `
-      <div class="convo-avatar">${initials(name)}<span class="dot" id="dot-${otherId}"></span></div>
+      <div class="convo-avatar">${escHtml(initials(name))}<span class="dot" id="dot-${escHtml(otherId)}"></span></div>
       <div class="convo-info">
         <div class="convo-name">${escHtml(name)}</div>
         <div class="convo-id mono">${escHtml(otherId)}</div>
@@ -114,7 +114,7 @@ async function sendMessage() {
     textarea.value = "";
     textarea.style.height = "auto";
   } catch (err) {
-    console.error("Could not send chat message", err);
+    console.error("Could not send chat message", { code: err?.code || "unknown" });
     toast("Message could not be sent. Check your connection and Firestore rules.", "err");
   }
 }
@@ -156,31 +156,27 @@ function listenToAppointments() {
           <div class="appt-card-when"><svg class="ui-icon" viewBox="0 0 24 24"><path d="M8 2v4"/><path d="M16 2v4"/><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M3 10h18"/></svg> ${escHtml(data.slot || "")}</div>
           <div class="appt-card-reason"><svg class="ui-icon" viewBox="0 0 24 24"><path d="M21 12a8 8 0 0 1-8 8H7l-4 3 1.5-5A8 8 0 1 1 21 12Z"/></svg> ${escHtml(data.reason || "No reason given")}</div>
           <div class="appt-card-actions">
-            <button class="btn btn-sm btn-primary" onclick="updateAppt('${doc.id}','confirmed')">Confirm</button>
-            <button class="btn btn-sm btn-danger" onclick="updateAppt('${doc.id}','cancelled')">Cancel</button>
+            <button class="btn btn-sm btn-primary" data-appt-action="confirmed">Confirm</button>
+            <button class="btn btn-sm btn-danger" data-appt-action="cancelled">Cancel</button>
           </div>
           <div style="margin-top:6px">
             <span class="badge badge-${data.status === "confirmed" ? "green" : data.status === "cancelled" ? "red" : "amber"}">${escHtml(data.status || "pending")}</span>
           </div>`;
         list.appendChild(card);
+        card.querySelectorAll("[data-appt-action]").forEach(button => {
+          button.addEventListener("click", () => updateAppt(doc.id, button.dataset.apptAction));
+        });
       });
     });
 }
 
 async function updateAppt(id, status) {
-  const ref = db.collection("appointments").doc(id);
-  const snap = await ref.get();
-  const data = snap.data() || {};
-  await ref.update({ status });
-  if (status === "cancelled" && data.staffId && data.slotId) {
-    const avRef = db.collection("availability").doc(data.staffId);
-    const avSnap = await avRef.get();
-    const slots = avSnap.data()?.slots || [];
-    await avRef.update({
-      slots: slots.map(slot => slot.id === data.slotId ? { ...slot, taken: false } : slot),
-    });
+  try {
+    await firebase.app().functions().httpsCallable("setAppointmentStatus")({ appointmentId: id, status });
+    toast(`Appointment ${status}.`, status === "confirmed" ? "success" : "err");
+  } catch {
+    toast("Could not update this appointment. Refresh and try again.", "err");
   }
-  toast(`Appointment ${status}.`, status === "confirmed" ? "success" : "err");
 }
 
 const DAYS = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
@@ -262,7 +258,7 @@ function autoGrow(el) {
 }
 
 function escHtml(s = "") {
-  return String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/\n/g, "<br>");
+  return String(s ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/\"/g, "&quot;").replace(/'/g, "&#39;").replace(/\n/g, "<br>");
 }
 
 function tsMillis(ts) {

@@ -96,46 +96,46 @@ async function lookupRegistry(rawId) {
   return { id: rawId.trim(), ...doc.data() };
 }
 
+// Minimal staff-facing name/role records. This collection is not an
+// authorization source and must never contain contact or clinical data.
+async function lookupDirectory(rawId) {
+  const doc = await db.collection("directory").doc(rawId.trim()).get();
+  if (!doc.exists) return null;
+  return { id: rawId.trim(), ...doc.data() };
+}
+
 // ── Route guard ──────────────────────────────────────────────
 // Call at top of each dashboard page.
 function guardRoute(requiredRole) {
   return new Promise((resolve, reject) => {
     auth.onAuthStateChanged(async user => {
       if (!user) { window.location.href = "index.html"; return reject(); }
-      let id   = localStorage.getItem("clinic-id");
-      let role = localStorage.getItem("clinic-role");
-      const authId = emailToClinicId(user.email);
-      if (!id && authId) id = authId;
-      if (!id && !authId) {
-        const entry = await lookupRegistryByAuthEmail(user.email).catch(() => null);
-        if (entry?.id) {
-          id = entry.id;
-          role = entry.role || detectRole(entry.id);
-          localStorage.setItem("clinic-id", entry.id);
-          if (role) localStorage.setItem("clinic-role", String(role).trim().toLowerCase());
-          if (entry.name) localStorage.setItem("clinic-name", entry.name);
-        }
-      }
-      if (id && authId && id.toLowerCase() !== authId.toLowerCase()) {
+      await clinicCacheCleanup;
+      let claims;
+      try { claims = (await user.getIdTokenResult()).claims; }
+      catch { claims = {}; }
+      const id = String(claims.clinicId || "");
+      const role = String(claims.role || "").trim().toLowerCase();
+      requiredRole = String(requiredRole || "").trim().toLowerCase();
+      if (!id || !["student", "doctor", "counsellor", "pharmacist", "admin"].includes(role)) {
         clearClinicSession();
         await auth.signOut().catch(() => {});
         window.location.href = "index.html";
         return reject();
       }
-      if (id && !role) {
-        const entry = await lookupRegistry(id).catch(() => null);
-        role = entry?.role || detectRole(id);
-        if (role) localStorage.setItem("clinic-role", role);
-        if (entry?.name) localStorage.setItem("clinic-name", entry.name);
+      const entry = await lookupRegistry(id).catch(() => null);
+      if (!entry || String(entry.role || "").toLowerCase() !== role) {
+        clearClinicSession();
+        await auth.signOut().catch(() => {});
+        window.location.href = "index.html";
+        return reject();
       }
-      role = String(role || "").trim().toLowerCase();
-      requiredRole = String(requiredRole || "").trim().toLowerCase();
-      if (!id || role !== requiredRole) {
+      if (role !== requiredRole) {
         window.location.href = role ? dashboardForRole(role) : "index.html";
         return reject();
       }
       setupPresence(id);
-      resolve({ id, role, name: localStorage.getItem("clinic-name") || id });
+      resolve({ id, role, name: entry.name || id });
     });
   });
 }
@@ -217,7 +217,8 @@ function watchPresence(userId, dotEl) {
 }
 
 async function goOfflineAndSignOut() {
-  const id = localStorage.getItem("clinic-id");
+  let id = "";
+  try { id = String((await auth.currentUser?.getIdTokenResult())?.claims?.clinicId || ""); } catch {}
   if (id && rtdb) await rtdb.ref(`/status/${id}`).set({ state: "offline", ts: firebase.database.ServerValue.TIMESTAMP }).catch(() => {});
   clearClinicSession();
   await auth.signOut();

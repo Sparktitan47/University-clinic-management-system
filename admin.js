@@ -26,7 +26,7 @@ async function markCurrentAdminActive(id) {
       updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
     }, { merge: true });
   } catch (err) {
-    console.warn("Could not update current admin account status", err);
+    console.warn("Could not update current admin account status", { code: err?.code || "unknown" });
   }
 }
 
@@ -55,7 +55,7 @@ function loadRegistry() {
     renderRegistry(getFilteredRegistry());
     renderAssignmentOptions(users);
   }, err => {
-    console.error("Unable to load the clinic registry", err);
+    console.error("Unable to load the clinic registry", { code: err?.code || "unknown" });
     toast("Unable to load the registry. Check Firestore security rules and your connection.", "err", 7000);
   });
 }
@@ -80,7 +80,7 @@ function renderRegistry(users) {
       <td class="mono">${escHtml(user.id)}</td>
       <td>${escHtml(user.name || "")}</td>
       <td><span class="badge badge-blue">${escHtml(user.role || "")}</span></td>
-      <td>${user.signedUp || (user.id === localStorage.getItem("clinic-id") && auth.currentUser) ? '<span class="badge badge-green">active account</span>' : '<span class="badge badge-amber">ID authorised</span>'}</td>
+      <td>${user.signedUp ? '<span class="badge badge-green">active account</span>' : '<span class="badge badge-amber">ID authorised</span>'}</td>
       <td class="mono">${escHtml(user.recoveryEmail || user.authEmail || "not set")}</td>
       <td class="mono">${escHtml(user.role === "student" ? (user.assignedDoctor || "unassigned") : "N/A")}</td>
       <td class="mono">${escHtml(user.role === "student" ? (user.assignedCounsellor || "unassigned") : "N/A")}</td>
@@ -121,16 +121,19 @@ document.getElementById("registryRows")?.addEventListener("click", async e => {
       }, { merge: true });
       toast("Signup status reset. Delete the matching Firebase Auth user before that person signs up again.", "success", 6500);
     } catch (err) {
-      console.error("Could not reset registry account", err);
+      console.error("Could not reset registry account", { code: err?.code || "unknown" });
       toast("Could not reset this ID. Check Firestore security rules.", "err");
     }
   }
   if (deleteId && confirm(`Delete ${deleteId} from the clinic registry?`)) {
     try {
-      await db.collection("registry").doc(deleteId).delete();
+      const batch = db.batch();
+      batch.delete(db.collection("registry").doc(deleteId));
+      batch.delete(db.collection("directory").doc(deleteId));
+      await batch.commit();
       toast("Registry ID deleted. Delete its Firebase Auth user too before reusing the same email.", "success", 6500);
     } catch (err) {
-      console.error("Could not delete registry account", err);
+      console.error("Could not delete registry account", { code: err?.code || "unknown" });
       toast("Could not delete this ID. Check Firestore security rules.", "err");
     }
   }
@@ -174,7 +177,8 @@ document.getElementById("registryForm").addEventListener("submit", async e => {
     const existing = await db.collection("registry").doc(id).get();
     const existingData = existing.data() || {};
     const createdAt = existing.exists ? existingData.createdAt || firebase.firestore.FieldValue.serverTimestamp() : firebase.firestore.FieldValue.serverTimestamp();
-    await db.collection("registry").doc(id).set({
+    const batch = db.batch();
+    batch.set(db.collection("registry").doc(id), {
       name,
       role,
       recoveryEmail: recoveryEmail || existingData.recoveryEmail || null,
@@ -182,10 +186,12 @@ document.getElementById("registryForm").addEventListener("submit", async e => {
       createdAt,
       updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
     }, { merge: true });
+    batch.set(db.collection("directory").doc(id), { name, role }, { merge: true });
+    await batch.commit();
     e.target.reset();
     toast(existing.exists ? "Recognised ID updated." : "Recognised ID saved.", "success");
   } catch (err) {
-    console.error("Could not save registry ID", err);
+    console.error("Could not save registry ID", { code: err?.code || "unknown" });
     const code = err?.code || "unknown error";
     const message = code === "permission-denied" || code === "firestore/permission-denied"
       ? "Firestore denied Save ID. Publish the signed-in write rules, then sign out and back in."
@@ -210,7 +216,7 @@ document.getElementById("assignmentForm").addEventListener("submit", async e => 
     }, { merge: true });
     toast("Student assignment saved.", "success");
   } catch (err) {
-    console.error("Could not save care-team assignment", err);
+    console.error("Could not save care-team assignment", { code: err?.code || "unknown" });
     toast("Could not save the assignment. Check Firestore security rules.", "err");
   }
 });
@@ -334,5 +340,5 @@ document.getElementById("adminEmergencyList")?.addEventListener("click", async e
 });
 
 function escHtml(s = "") {
-  return String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
+  return String(s ?? "").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/\"/g,"&quot;").replace(/'/g,"&#39;");
 }

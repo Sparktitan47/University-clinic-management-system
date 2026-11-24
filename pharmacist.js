@@ -15,19 +15,17 @@ guardRoute("pharmacist").then(user => {
 
 document.querySelectorAll(".sign-out-btn").forEach(btn => btn.addEventListener("click", goOfflineAndSignOut));
 
-db.collection("pharmacy").orderBy("name").onSnapshot(snap => {
-  const grid = document.getElementById("drugGrid");
-  if (!grid) return;
-  grid.innerHTML = "";
-  if (snap.empty) {
-    grid.innerHTML = '<p class="text-2">No medications listed yet.</p>';
-    return;
-  }
-  snap.forEach(doc => renderDrug(doc.id, doc.data()));
-});
-
 function loadDrugs() {
-  // Snapshot listener above keeps the grid live.
+  db.collection("pharmacy").orderBy("name").onSnapshot(snap => {
+    const grid = document.getElementById("drugGrid");
+    if (!grid) return;
+    grid.innerHTML = "";
+    if (snap.empty) {
+      grid.innerHTML = '<p class="text-2">No medications listed yet.</p>';
+      return;
+    }
+    snap.forEach(doc => renderDrug(doc.id, doc.data()));
+  }, err => toast("Unable to load pharmacy inventory.", "err"));
 }
 
 function renderDrug(id, data) {
@@ -97,5 +95,5 @@ document.getElementById("clearDrugForm").addEventListener("click", () => {
 });
 
 function escHtml(s = "") {
-  return String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
+  return String(s ?? "").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/\"/g,"&quot;").replace(/'/g,"&#39;");
 }
