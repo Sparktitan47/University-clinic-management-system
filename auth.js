@@ -12,6 +12,10 @@ auth.onAuthStateChanged(async user => {
     const id = String(claims.clinicId || "");
     if (id && ["student", "doctor", "counsellor", "pharmacist", "admin"].includes(role)) {
       window.location.href = dashboardForRole(role);
+    } else {
+      document.getElementById("signupFinishBtn")?.style.setProperty("display", "block");
+      const emailInput = document.getElementById("signupEmail");
+      if (emailInput && user.email) emailInput.value = user.email;
     }
   }
 });
@@ -126,6 +130,66 @@ document.getElementById("forgotForm")?.addEventListener("submit", async e => {
 
 document.getElementById("signupForm").addEventListener("submit", async e => {
   e.preventDefault();
-  setErr("signupIdError", "Self-service signup is disabled. Ask the clinic administrator to provision your account.");
-  setErr("signupPasswordError", "Account roles and IDs must be assigned by the administrator.");
+  setErr("signupIdError", "");
+  setErr("signupEmailError", "");
+  setErr("signupPasswordError", "");
+  const clinicId = canonicalClinicId(document.getElementById("signupId").value);
+  const email = document.getElementById("signupEmail").value.trim().toLowerCase();
+  const password = document.getElementById("signupPassword").value;
+  if (!isValidIdFormat(clinicId) || clinicId === ADMIN_ID) {
+    return setErr("signupIdError", "Enter a valid non-admin clinic ID approved by the clinic administrator.");
+  }
+  if (!isUsableRecoveryEmail(email)) return setErr("signupEmailError", "Enter your approved account email.");
+  if (password.length < 12) return setErr("signupPasswordError", "Use at least 12 characters.");
+  if (auth.currentUser && auth.currentUser.email?.toLowerCase() !== email) {
+    return setErr("signupEmailError", "This browser has another account signed in. Sign out, then try again.");
+  }
+
+  const btn = document.getElementById("signupCreateBtn");
+  setBusy(btn, true);
+  try {
+    if (!auth.currentUser) await auth.createUserWithEmailAndPassword(email, password);
+    await auth.currentUser.sendEmailVerification();
+    document.getElementById("signupPassword").value = "";
+    document.getElementById("signupFinishBtn").style.display = "block";
+    toast("Verification email sent. Verify it, return here, then finish setup.", "success", 8000);
+  } catch (err) {
+    const message = err?.code === "auth/email-already-in-use"
+      ? "That email already has an account. Log in or contact the clinic administrator."
+      : err?.code === "auth/weak-password"
+        ? "Choose a stronger password."
+        : "Could not start signup. Check the details and try again.";
+    setErr(err?.code === "auth/weak-password" ? "signupPasswordError" : "signupEmailError", message);
+  } finally {
+    setBusy(btn, false, "Create account and send verification email");
+  }
+});
+
+document.getElementById("signupFinishBtn")?.addEventListener("click", async e => {
+  setErr("signupIdError", "");
+  const user = auth.currentUser;
+  if (!user) return setErr("signupEmailError", "Sign in with the account you created, then finish setup.");
+  const clinicId = canonicalClinicId(document.getElementById("signupId").value);
+  if (!isValidIdFormat(clinicId) || clinicId === ADMIN_ID) {
+    return setErr("signupIdError", "Enter the same valid clinic ID approved by the clinic administrator.");
+  }
+  const finishBtn = e.currentTarget;
+  finishBtn.disabled = true;
+  try {
+    await user.reload();
+    if (!auth.currentUser.emailVerified) {
+      await auth.currentUser.sendEmailVerification();
+      return setErr("signupEmailError", "Email not verified yet. A fresh verification email has been sent.");
+    }
+    await auth.currentUser.getIdToken(true);
+    await firebase.app().functions().httpsCallable("completeEnrollment")({ clinicId });
+    await auth.currentUser.getIdToken(true);
+    const claims = (await auth.currentUser.getIdTokenResult()).claims;
+    window.location.href = dashboardForRole(claims.role);
+  } catch (err) {
+    console.error("Clinic enrollment failed", { code: err?.code || "unknown" });
+    setErr("signupIdError", "Enrollment could not be completed. Confirm your ID and approved email with the clinic administrator.");
+  } finally {
+    finishBtn.disabled = false;
+  }
 });

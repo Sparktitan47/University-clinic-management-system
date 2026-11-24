@@ -124,7 +124,8 @@ function guardRoute(requiredRole) {
         return reject();
       }
       const entry = await lookupRegistry(id).catch(() => null);
-      if (!entry || String(entry.role || "").toLowerCase() !== role) {
+      if (!entry || String(entry.role || "").toLowerCase() !== role
+          || entry.authUid !== user.uid || entry.signedUp !== true) {
         clearClinicSession();
         await auth.signOut().catch(() => {});
         window.location.href = "index.html";

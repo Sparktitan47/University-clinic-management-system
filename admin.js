@@ -168,7 +168,7 @@ document.getElementById("registryForm").addEventListener("submit", async e => {
     return;
   }
   if (recoveryEmail && !isUsableRecoveryEmail(recoveryEmail)) {
-    toast("Enter a valid recovery email or leave it blank.", "err");
+    toast("Enter a valid approved account email or leave it blank to require manual provisioning.", "err");
     return;
   }
   const submit = e.submitter || e.target.querySelector('[type="submit"]');

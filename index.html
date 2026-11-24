@@ -298,11 +298,28 @@
       <button type="button" class="inline-action" id="backToLoginFromForgot">Back to log in</button>
     </form>
 
-    <!-- ============ ADMIN-PROVISIONED ACCOUNT NOTICE ============ -->
+    <!-- ============ APPROVED-ID SELF ENROLLMENT ============ -->
     <form class="auth-form" id="signupForm" novalidate>
-      <h2>Account access</h2>
-      <p class="auth-sub">Clinic accounts are created by an administrator. Contact the clinic administrator to request access.</p>
-      <span class="field-error" id="signupIdError"></span>
+      <h2>Create your clinic account</h2>
+      <p class="auth-sub">Your clinic ID and email must already be approved by the administrator. Verify your email before access is enabled.</p>
+      <div class="field">
+        <label for="signupId">University / Staff ID</label>
+        <input id="signupId" type="text" placeholder="e.g. Student-2024118" autocomplete="username" required />
+        <span class="field-error" id="signupIdError"></span>
+      </div>
+      <div class="field">
+        <label for="signupEmail">Approved account email</label>
+        <input id="signupEmail" type="email" placeholder="name@example.edu" autocomplete="email" required />
+        <span class="field-error" id="signupEmailError"></span>
+      </div>
+      <div class="field">
+        <label for="signupPassword">Create password</label>
+        <input id="signupPassword" type="password" minlength="12" autocomplete="new-password" required />
+        <span class="id-hint">Use at least 12 characters.</span>
+        <span class="field-error" id="signupPasswordError"></span>
+      </div>
+      <button type="submit" class="btn btn-primary" id="signupCreateBtn" style="width:100%;">Create account and send verification email</button>
+      <button type="button" class="btn btn-ghost" id="signupFinishBtn" style="width:100%; margin-top:8px; display:none;">I've verified my email — finish setup</button>
     </form>
   </div>
 </div>
@@ -311,6 +328,7 @@
 <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-database-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-functions-compat.js"></script>
 <script src="firebase-config.js"></script>
 <script src="core.js"></script>
 <script src="auth.js"></script>

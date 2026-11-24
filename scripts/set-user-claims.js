@@ -21,6 +21,7 @@ if (!uid || !clinicId || !roles.has(role) || !idPatterns[role].test(clinicId)) {
 admin.initializeApp({ credential: admin.credential.applicationDefault() });
 async function provision() {
   const authUser = await admin.auth().getUser(uid);
+  if (!authUser.emailVerified) throw new Error("Verify the Auth account email before provisioning.");
   const registryDoc = await admin.firestore().collection("registry").doc(clinicId).get();
   if (!registryDoc.exists || String(registryDoc.get("role") || "").toLowerCase() !== role) {
     throw new Error("Registry record is missing or its role does not match.");
@@ -31,6 +32,9 @@ async function provision() {
   }
   const existing = authUser.customClaims || {};
   await admin.auth().setCustomUserClaims(uid, { ...existing, clinicId, role });
+  await admin.firestore().collection("registry").doc(clinicId).set({
+    authUid: uid, authEmail: expectedEmail, signedUp: true,
+  }, { merge: true });
   await admin.firestore().collection("directory").doc(clinicId).set({
     name: String(registryDoc.get("name") || clinicId), role,
   }, { merge: true });

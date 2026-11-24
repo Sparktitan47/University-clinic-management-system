@@ -2,7 +2,7 @@
 
 ## Summary
 
-The browser app previously relied on client-side role checks while Firestore granted every signed-in account broad access. This update moves authorization to Firebase custom claims and database rules, disables public self-enrollment, routes appointment mutations through trusted Cloud Functions, and removes known unsafe HTML rendering and persistent browser caching.
+The browser app previously relied on client-side role checks while Firestore granted every signed-in account broad access. This update moves authorization to Firebase custom claims and database rules, restores self-service enrollment only for admin-approved non-admin IDs after email verification, routes appointment mutations through trusted Cloud Functions, and removes known unsafe HTML rendering and persistent browser caching.
 
 **Review status: source changes prepared; deployment and live Firebase verification are still required.** Do not use real clinic data until the deployment checklist below is complete.
 
@@ -12,7 +12,7 @@ The browser app previously relied on client-side role checks while Firestore gra
 
 - Replaced the permissive rules with per-collection authorization in `firestore.rules`. Registry reads are limited to the user's own record and admins; registry listing and edits are admin-only. Chat access is limited to participants, appointment reads to the student, assigned clinical staff, or admins, pharmacy writes to pharmacists/admins, and site settings writes to admins. Unmatched paths deny access.
 - Dashboards now derive role and clinic ID from Firebase Auth custom claims (`role`, `clinicId`), then verify the role against the user's registry record. Browser storage is no longer an authorization source.
-- Disabled public self-service signup. The former flow allowed a visitor to claim a known ID by choosing an email and updating its registry record. Accounts must now be provisioned by an administrator.
+- Replaced the unsafe signup flow with verified-email enrollment. An admin must pre-approve the clinic ID and email in the registry. The trusted `completeEnrollment` function verifies the Auth email, denies admin enrollment, claims the ID for one Auth UID, and issues the role from the registry as custom claims. The browser cannot write registry ownership or select a role.
 - Added `scripts/set-user-claims.js`. It issues claims only when the Auth account email, registry ID, and registry role agree. Run it only with trusted Admin SDK credentials.
 - Added a minimal `directory/{id}` record containing only name and role. Student and staff screens use it for display names instead of reading another person's full registry record. Registry keeps recovery/auth email and care assignments restricted.
 
@@ -20,6 +20,7 @@ The browser app previously relied on client-side role checks while Firestore gra
 
 - Added the `bookAppointment` callable in `functions/index.js`. It verifies the student's role and care-team assignment, checks that the selected slot is still available, and atomically marks it taken and creates the appointment in a Firestore transaction.
 - Added `setAppointmentStatus` for assigned clinical staff. It only permits pending appointments to be confirmed or cancelled, and cancellation releases the slot in the same transaction.
+- The public enrollment callable cannot assign an admin claim. A permanent first admin is bootstrapped out of band using the trusted claims script, and that account is not exposed to public signup.
 - Direct client creation of appointments and direct staff status changes are denied by the Firestore rules.
 
 ### Data rendering, storage, and logs
@@ -32,10 +33,10 @@ The browser app previously relied on client-side role checks while Firestore gra
 ## Deployment checklist
 
 1. Back up the existing Firebase data and confirm the target project before deploying.
-2. Create/verify the registry record for each user. Create each Auth account using an administrator-verified email address that matches `authEmail` or `recoveryEmail` in that record.
+2. Bootstrap the permanent first admin out of band with a verified Auth email, `registry/ADMIN-001`, and `node scripts/set-user-claims.js <auth-uid> ADMIN-001 admin`. Enable MFA, keep credentials private, and maintain a controlled recovery method.
 3. Install Cloud Function dependencies with `npm --prefix functions install` and deploy with `firebase deploy --project uni-clinic-ce45a --only firestore:rules,database,functions`.
-4. Provision each user from a trusted workstation with `node scripts/set-user-claims.js <auth-uid> <clinic-id> <role>`. Users must sign out and back in after claims are issued. Bootstrap the first admin through a trusted process.
-5. Create `directory/{id}` documents containing only `{ name, role }` for existing accounts. New records created in the admin UI and users provisioned by the script maintain this directory going forward.
+4. Admins add regular users' IDs and approved emails in the dashboard. Users create an account, verify that email, then finish enrollment in the app. The server derives the role from the registry; public enrollment rejects the admin ID.
+5. Create `directory/{id}` documents containing only `{ name, role }` for existing accounts. New records created in the admin UI and successful enrollments maintain this directory going forward.
 6. Use the Firebase Rules simulator to verify anonymous access is denied; students cannot read another student's appointment/chat/report; staff cannot access unrelated chats or appointments; pharmacists cannot edit registry/reports; and only admins can list or alter registry data.
 7. Enable Firebase App Check for the web app and enforce it on callable functions before production use. The current functions verify Auth claims but App Check enforcement is not enabled because this repository has no App Check provider/site-key configuration.
 8. Configure the actual hosting provider to serve only the app's public pages/assets, force HTTPS, and set HSTS, CSP (`frame-ancestors 'none'`, `object-src 'none'`), `X-Content-Type-Options: nosniff`, a restrictive `Referrer-Policy`, and `Cache-Control: no-store`. The hosting provider is not identified in this repository, so those response headers could not be safely configured here.
@@ -45,7 +46,7 @@ The browser app previously relied on client-side role checks while Firestore gra
 
 ### Addressed in source
 
-- Broad Firestore access, public registry reads, and client-controlled signup/role assignment.
+- Broad Firestore access, public registry reads, and client-controlled signup/role assignment. Self-service enrollment now uses verified email and server-side registry checks.
 - Direct appointment creation and status mutation, including the double-booking race.
 - Stored XSS sinks identified in pharmacy and appointment rendering, plus inline appointment handlers.
 - Persistent Firestore browser cache for clinic data.

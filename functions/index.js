@@ -1,9 +1,49 @@
 const { onCall, HttpsError } = require("firebase-functions/v2/https");
 const { initializeApp } = require("firebase-admin/app");
+const { getAuth } = require("firebase-admin/auth");
 const { getFirestore, FieldValue } = require("firebase-admin/firestore");
 
 initializeApp();
 const db = getFirestore();
+
+exports.completeEnrollment = onCall(async request => {
+  const uid = request.auth?.uid;
+  const email = String(request.auth?.token?.email || "").trim().toLowerCase();
+  if (!uid || request.auth.token.email_verified !== true || !email) {
+    throw new HttpsError("permission-denied", "Verify the approved account email before completing enrollment.");
+  }
+  const clinicId = String(request.data?.clinicId || "").trim();
+  if (!/^(Student-[A-Za-z0-9]+|DOC-[A-Za-z0-9]+|COUN-[A-Za-z0-9]+|PHR-[A-Za-z0-9]+)$/.test(clinicId)) {
+    throw new HttpsError("invalid-argument", "Enrollment could not be completed.");
+  }
+  const registryRef = db.collection("registry").doc(clinicId);
+  const role = await db.runTransaction(async tx => {
+    const current = await tx.get(registryRef);
+    if (!current.exists) throw new HttpsError("permission-denied", "Enrollment could not be completed.");
+    const currentRole = String(current.get("role") || "").toLowerCase();
+    const approvedEmail = String(current.get("authEmail") || current.get("recoveryEmail") || "").trim().toLowerCase();
+    if (!["student", "doctor", "counsellor", "pharmacist"].includes(currentRole) || approvedEmail !== email) {
+      throw new HttpsError("permission-denied", "Enrollment could not be completed.");
+    }
+    const existingUid = current.get("authUid");
+    if (current.get("signedUp") === true && existingUid !== uid) {
+      throw new HttpsError("already-exists", "Enrollment could not be completed.");
+    }
+    tx.set(registryRef, {
+      authUid: uid,
+      authEmail: email,
+      signedUp: true,
+      signedUpAt: current.get("signedUpAt") || FieldValue.serverTimestamp(),
+    }, { merge: true });
+    tx.set(db.collection("directory").doc(clinicId), {
+      name: current.get("name") || clinicId,
+      role: currentRole,
+    }, { merge: true });
+    return currentRole;
+  });
+  await getAuth().setCustomUserClaims(uid, { clinicId, role });
+  return { clinicId, role };
+});
 
 exports.bookAppointment = onCall(async request => {
   const claims = request.auth?.token || {};

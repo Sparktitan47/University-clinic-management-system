@@ -51,7 +51,7 @@
               <div class="field"><label for="regId">University or staff ID</label><input id="regId" placeholder="Student-2024118" required /></div>
               <div class="field"><label for="regName">Full name</label><input id="regName" required /></div>
               <div class="field"><label for="regRole">Role</label><select id="regRole" required><option value="">Select role</option><option value="student">Student</option><option value="doctor">Doctor</option><option value="pharmacist">Pharmacist</option><option value="counsellor">Counsellor</option><option value="admin">Admin</option></select></div>
-              <div class="field"><label for="regRecoveryEmail">Recovery email</label><input id="regRecoveryEmail" type="email" placeholder="optional@example.com" /></div>
+              <div class="field"><label for="regRecoveryEmail">Approved account / recovery email</label><input id="regRecoveryEmail" type="email" placeholder="person@example.edu" /><span class="id-hint">Required for self-service signup. The user must verify this address.</span></div>
             </div>
             <button class="btn btn-primary" type="submit">Save ID</button>
           </form>
@@ -63,7 +63,7 @@
           </div>
           <div class="data-table-wrap">
             <table class="data-table">
-              <thead><tr><th>ID</th><th>Name</th><th>Role</th><th>Status</th><th>Recovery email</th><th>Doctor</th><th>Counsellor</th><th>Actions</th></tr></thead>
+              <thead><tr><th>ID</th><th>Name</th><th>Role</th><th>Status</th><th>Approved email</th><th>Doctor</th><th>Counsellor</th><th>Actions</th></tr></thead>
               <tbody id="registryRows"></tbody>
             </table>
           </div>
